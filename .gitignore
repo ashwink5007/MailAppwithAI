@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+/.pnp
+.pnp.*
+
+# Next.js build outputs
+.next/
+frontend/.next/
+out/
+frontend/out/
+build/
+dist/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Environment variables
+.env
+.env*.local
+
+# System & IDE
+.DS_Store
+*.pem
+.vscode/
+.idea/
+*.tsbuildinfo
+next-env.d.ts
