@@ -14,9 +14,11 @@ import {
   HardDrive, 
   Settings, 
   HelpCircle,
-  ChevronRight
+  ChevronRight,
+  Mail
 } from 'lucide-react';
 import { useEmail } from '../../context/EmailContext';
+import { useAuth } from '../../context/AuthContext';
 import { FolderId, EmailLabel } from '../../types/email';
 
 interface SidebarProps {
@@ -59,6 +61,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
     openCompose 
   } = useEmail();
 
+  const { user } = useAuth();
+
   const handleFolderClick = (id: FolderId) => {
     setActiveFolder(id);
     if (onCloseMobile) onCloseMobile();
@@ -75,8 +79,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
 
   return (
     <aside className="w-60 h-full bg-slate-50/90 border-r border-slate-200 flex flex-col shrink-0 select-none overflow-y-auto">
+      {/* Connected User Account Card */}
+      <div className="p-3 pb-0">
+        <div className="p-2.5 bg-white border border-slate-200/90 rounded-2xl flex items-center gap-2.5 shadow-2xs">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-xs">
+            {user?.name?.charAt(0) || 'G'}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1">
+              <span className="text-xs font-bold text-slate-900 truncate">{user?.name || 'Gmail User'}</span>
+            </div>
+            <p className="text-[10px] text-blue-600 font-bold truncate">{user?.email || 'xyz@gmail.com'}</p>
+          </div>
+        </div>
+      </div>
+
       {/* Compose Button */}
-      <div className="p-4">
+      <div className="p-3">
         <button
           onClick={() => {
             openCompose();
@@ -164,7 +183,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
           <div className="flex items-center justify-between text-[11px]">
             <span className="text-slate-500 flex items-center gap-1.5 font-medium">
               <HardDrive className="w-3.5 h-3.5 text-slate-400" />
-              Storage
+              Google Storage
             </span>
             <span className="font-bold text-slate-700">1.4 GB / 15 GB</span>
           </div>

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
 import { Email, FolderId, EmailLabel, EmailFilterTab } from '../types/email';
-import { INITIAL_EMAILS } from '../data/mockEmails';
+import { generateUserEmails } from '../data/mockEmails';
+import { useAuth } from './AuthContext';
 
 interface ComposeData {
   to?: string;
@@ -47,15 +48,27 @@ interface EmailContextType {
 const EmailContext = createContext<EmailContextType | undefined>(undefined);
 
 export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [emails, setEmails] = useState<Email[]>(INITIAL_EMAILS);
+  const { user } = useAuth();
+
+  const userEmail = user?.email || 'xyz@gmail.com';
+  const userName = user?.name || 'User';
+
+  const [emails, setEmails] = useState<Email[]>(() => generateUserEmails(userEmail, userName));
   const [activeFolder, setActiveFolderState] = useState<FolderId>('inbox');
   const [activeLabel, setActiveLabelState] = useState<EmailLabel | null>(null);
-  const [selectedEmailId, setSelectedEmailId] = useState<string | null>(INITIAL_EMAILS[0]?.id || null);
+  const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
   const [selectedEmailIds, setSelectedEmailIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterTab, setFilterTab] = useState<EmailFilterTab>('all');
   const [isComposeOpen, setIsComposeOpen] = useState<boolean>(false);
   const [composeData, setComposeData] = useState<ComposeData | null>(null);
+
+  // Sync emails whenever authenticated user changes
+  useEffect(() => {
+    const initial = generateUserEmails(userEmail, userName);
+    setEmails(initial);
+    setSelectedEmailId(initial[0]?.id || null);
+  }, [userEmail, userName]);
 
   const setActiveFolder = useCallback((folder: FolderId) => {
     setActiveFolderState(folder);
@@ -124,8 +137,8 @@ export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const newEmail: Email = {
       id: `email-${Date.now()}`,
       sender: {
-        name: 'Alex Rivera (Me)',
-        email: 'me@aimail.io',
+        name: userName,
+        email: userEmail,
       },
       recipients: [data.to],
       subject: data.subject || '(no subject)',
@@ -141,8 +154,8 @@ export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         {
           id: `msg-${Date.now()}`,
           sender: {
-            name: 'Alex Rivera (Me)',
-            email: 'me@aimail.io',
+            name: userName,
+            email: userEmail,
           },
           recipients: [data.to],
           cc: data.cc ? [data.cc] : undefined,
@@ -157,7 +170,7 @@ export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setEmails(prev => [newEmail, ...prev]);
     setIsComposeOpen(false);
     setComposeData(null);
-  }, []);
+  }, [userEmail, userName]);
 
   const sendReply = useCallback((emailId: string, text: string) => {
     setEmails(prev => prev.map(email => {
@@ -165,8 +178,8 @@ export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const newMsg = {
         id: `msg-reply-${Date.now()}`,
         sender: {
-          name: 'Alex Rivera (Me)',
-          email: 'me@aimail.io',
+          name: userName,
+          email: userEmail,
         },
         recipients: [email.sender.email],
         timestamp: 'Just now',
@@ -180,7 +193,7 @@ export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         timestamp: 'Just now',
       };
     }));
-  }, []);
+  }, [userEmail, userName]);
 
   const openCompose = useCallback((initial?: ComposeData) => {
     setComposeData(initial || null);

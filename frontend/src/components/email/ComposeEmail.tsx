@@ -18,9 +18,11 @@ import {
   Check
 } from 'lucide-react';
 import { useEmail } from '../../context/EmailContext';
+import { useAuth } from '../../context/AuthContext';
 
 export const ComposeEmail: React.FC = () => {
   const { isComposeOpen, closeCompose, composeData, sendEmail } = useEmail();
+  const { user } = useAuth();
 
   const [to, setTo] = useState('');
   const [cc, setCc] = useState('');
@@ -130,6 +132,14 @@ export const ComposeEmail: React.FC = () => {
       {/* Main Form Fields */}
       {!isMinimized && (
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 bg-white">
+          {/* From Field */}
+          <div className="flex items-center px-4 py-2 border-b border-slate-100 text-xs bg-slate-50/50">
+            <span className="text-slate-400 w-12 font-medium">From:</span>
+            <span className="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200">
+              {user?.email || 'xyz@gmail.com'}
+            </span>
+          </div>
+
           {/* To Field */}
           <div className="flex items-center px-4 py-2 border-b border-slate-100 text-xs">
             <span className="text-slate-400 w-12 font-medium">To:</span>
