@@ -1,6 +1,7 @@
 package com.mailapp.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
@@ -30,6 +31,9 @@ import java.util.Map;
 @EnableWebSecurity
 public class SecurityConfig {
 
+    @Value("${frontend.url:http://localhost:3000}")
+    private String frontendUrl;
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
@@ -56,12 +60,12 @@ public class SecurityConfig {
             .oauth2Login(oauth2 -> oauth2
                 // After successful Google login, redirect back to the Next.js app.
                 // The ?login=success param lets the frontend know to re-check the session.
-                .defaultSuccessUrl("http://localhost:3000/?login=success", true)
+                .defaultSuccessUrl(frontendUrl + "/?login=success", true)
             )
 
             // Spring Security's built-in logout endpoint: GET /logout
             .logout(logout -> logout
-                .logoutSuccessUrl("http://localhost:3000/?logout=success")
+                .logoutSuccessUrl(frontendUrl + "/?logout=success")
                 .invalidateHttpSession(true)
                 .deleteCookies("JSESSIONID")
             );
