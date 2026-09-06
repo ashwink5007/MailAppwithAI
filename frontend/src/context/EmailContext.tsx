@@ -39,6 +39,7 @@ interface EmailContextType {
   selectAllEmails: (select: boolean) => void;
   setSearchQuery: (q: string) => void;
   setFilterTab: (tab: EmailFilterTab) => void;
+  setAiDateRange: (dateRange: string | null) => void;
   toggleStar: (id: string) => void;
   toggleImportant: (id: string) => void;
   toggleRead: (id: string) => void;
@@ -71,6 +72,7 @@ export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [selectedEmailIds, setSelectedEmailIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterTab, setFilterTab] = useState<EmailFilterTab>('all');
+  const [aiDateRange, setAiDateRange] = useState<string | null>(null);
   const [isComposeOpen, setIsComposeOpen] = useState<boolean>(false);
   const [composeData, setComposeData] = useState<ComposeData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -129,10 +131,12 @@ export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setActiveFolderState(folder);
     setActiveLabelState(null);
     setSelectedEmailIds([]);
+    setAiDateRange(null);
   }, []);
 
   const setActiveLabel = useCallback((label: EmailLabel | null) => {
     setActiveLabelState(label);
+    setAiDateRange(null);
     if (label) {
       setSelectedEmailIds([]);
     }
@@ -216,7 +220,38 @@ export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Filtered emails logic
   const filteredEmails = useMemo(() => {
+    const isInDateRange = (email: Email) => {
+      if (!aiDateRange) return true;
+      const emailDate = new Date(email.fullDate.replace(' at ', ' '));
+      if (Number.isNaN(emailDate.getTime())) return true;
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const endOfToday = new Date(startOfToday);
+      endOfToday.setDate(endOfToday.getDate() + 1);
+      const startOfWeek = new Date(startOfToday);
+      startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay());
+
+      switch (aiDateRange) {
+        case 'TODAY': return emailDate >= startOfToday && emailDate < endOfToday;
+        case 'THIS_WEEK': return emailDate >= startOfWeek && emailDate < endOfToday;
+        case 'LAST_7_DAYS': {
+          const start = new Date(startOfToday);
+          start.setDate(startOfToday.getDate() - 6);
+          return emailDate >= start && emailDate < endOfToday;
+        }
+        case 'LAST_10_DAYS': {
+          const start = new Date(startOfToday);
+          start.setDate(startOfToday.getDate() - 9);
+          return emailDate >= start && emailDate < endOfToday;
+        }
+        case 'THIS_MONTH': return emailDate.getFullYear() === now.getFullYear()
+          && emailDate.getMonth() === now.getMonth();
+        default: return true;
+      }
+    };
+
     return emails.filter(email => {
+      if (!isInDateRange(email)) return false;
       // Label filter
       if (activeLabel) {
         if (!email.labels.includes(activeLabel)) return false;
@@ -247,7 +282,7 @@ export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       return true;
     });
-  }, [emails, activeFolder, activeLabel, filterTab, searchQuery]);
+  }, [emails, activeFolder, activeLabel, filterTab, searchQuery, aiDateRange]);
 
   const selectAllEmails = useCallback((select: boolean) => {
     if (select) {
@@ -299,6 +334,7 @@ export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         selectAllEmails,
         setSearchQuery,
         setFilterTab,
+        setAiDateRange,
         toggleStar,
         toggleImportant,
         toggleRead,

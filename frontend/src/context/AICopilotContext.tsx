@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { AIStatus, AIMessage, ActionProposal, SuggestedPrompt } from '../types/ai';
 import { useEmail } from './EmailContext';
+import { interpretAiCommand, AiAction } from '../services/aiService';
+import { FolderId } from '../types/email';
 
 interface AICopilotContextType {
   isOpen: boolean;
@@ -29,7 +31,7 @@ const INITIAL_MESSAGES: AIMessage[] = [
     id: 'msg-welcome',
     sender: 'assistant',
     timestamp: 'Just now',
-    text: "Hello Alex! I am your AI Copilot. I can summarize complex threads, draft thoughtful replies, categorize tasks, and execute bulk inbox operations.",
+    text: "Hello! I'm your AI Mail Copilot. I can navigate folders, filter emails, open compose, search, and more. Try: \"Show unread emails from this week\" or \"Compose a new email\".",
   },
 ];
 
@@ -47,21 +49,66 @@ const SUGGESTED_PROMPTS: SuggestedPrompt[] = [
     requiresSelectedEmail: true,
   },
   {
-    id: 'p-john',
-    label: 'Find unread from John',
-    promptText: 'Find unread emails from John Miller.',
+    id: 'p-unread-week',
+    label: 'Unread this week',
+    promptText: 'Show unread emails from this week.',
   },
   {
-    id: 'p-action-needed',
-    label: 'Emails needing response',
-    promptText: 'Show emails that need my response.',
+    id: 'p-sent',
+    label: 'Go to Sent',
+    promptText: 'Go to sent emails.',
   },
   {
-    id: 'p-archive-promo',
-    label: 'Archive promotions',
-    promptText: 'Archive all promotional and marketing emails.',
+    id: 'p-compose',
+    label: 'Compose email',
+    promptText: 'Compose a new email.',
   },
 ];
+
+/**
+ * Builds a human-readable confirmation message after an action is executed.
+ */
+function describeExecutedAction(action: AiAction): string {
+  switch (action.type) {
+    case 'NAVIGATE': {
+      const view = String(action.payload?.view || '').toLowerCase();
+      return `Navigated to your ${view} folder.`;
+    }
+    case 'OPEN_COMPOSE':
+      return 'Compose window opened. Ready for you to write.';
+    case 'FILL_COMPOSE': {
+      const to = action.payload?.to ? `to ${action.payload.to}` : '';
+      const subject = action.payload?.subject ? `, subject: "${action.payload.subject}"` : '';
+      return `Compose window opened${to ? ' ' + to : ''}${subject}. Review and send when ready.`;
+    }
+    case 'FILTER_EMAILS': {
+      const parts: string[] = [];
+      if (action.payload?.unread === true || action.payload?.isUnread === true) parts.push('unread');
+      if (action.payload?.sender) parts.push(`from "${action.payload.sender}"`);
+      if (action.payload?.keyword) parts.push(`containing "${action.payload.keyword}"`);
+      if (action.payload?.dateRange) parts.push(`in range: ${String(action.payload.dateRange).replace(/_/g, ' ').toLowerCase()}`);
+      return parts.length > 0
+        ? `Inbox filtered — showing emails ${parts.join(', ')}.`
+        : 'Inbox filter applied.';
+    }
+    case 'SEARCH_EMAILS': {
+      const q = action.payload?.query || action.payload?.keyword || '';
+      return q ? `Searching for "${q}"…` : 'Search applied.';
+    }
+    case 'OPEN_EMAIL':
+      return 'Opening the email for you.';
+    case 'PREPARE_REPLY':
+      return 'Compose window opened with reply context. Complete and send when ready.';
+    case 'UNKNOWN': {
+      const reason = action.payload?.reason ? String(action.payload.reason) : '';
+      return reason
+        ? reason
+        : "I wasn't sure what you meant. Could you rephrase? Try commands like \"show unread\", \"go to sent\", or \"compose email\".";
+    }
+    default:
+      return 'Action received.';
+  }
+}
 
 const AICopilotContext = createContext<AICopilotContextType | undefined>(undefined);
 
@@ -74,12 +121,16 @@ export const AICopilotProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const {
     selectedEmail,
+    activeFolder,
+    activeLabel,
+    filterTab,
     emails,
+    setActiveFolder,
     setSearchQuery,
     setFilterTab,
-    archiveEmails,
-    setActiveFolder,
+    setAiDateRange,
     openCompose,
+    setSelectedEmailId,
   } = useEmail();
 
   const toggleOpen = useCallback(() => {
@@ -93,245 +144,196 @@ export const AICopilotProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setPendingAction(null);
   }, []);
 
-  const runWithPhases = async (
-    userText: string,
-    steps: { thinking: string; processing: string; executing?: string },
-    generateResponse: () => AIMessage
-  ) => {
-    // Add user message
-    const userMsg: AIMessage = {
+  /**
+   * Executes the action returned by the backend Gemini AI,
+   * updating React state directly (NO DOM automation).
+   */
+  const executeAction = useCallback((action: AiAction) => {
+    switch (action.type) {
+      case 'NAVIGATE': {
+        const view = String(action.payload?.view || 'INBOX').toLowerCase();
+        const folderMap: Record<string, FolderId> = {
+          inbox: 'inbox',
+          sent: 'sent',
+          compose: 'inbox', // navigate to inbox then open compose
+          drafts: 'drafts',
+          spam: 'spam',
+          trash: 'trash',
+          starred: 'starred',
+          important: 'important',
+        };
+        const folder = folderMap[view] || 'inbox';
+        setActiveFolder(folder);
+        if (view === 'compose') {
+          // Small tick to let folder render first
+          setTimeout(() => openCompose(), 50);
+        }
+        break;
+      }
+
+      case 'OPEN_COMPOSE':
+        openCompose();
+        break;
+
+      case 'FILL_COMPOSE': {
+        const p = action.payload || {};
+        openCompose({
+          to: typeof p.to === 'string' ? p.to : undefined,
+          subject: typeof p.subject === 'string' ? p.subject : undefined,
+          body: typeof p.body === 'string' ? p.body : undefined,
+        });
+        break;
+      }
+
+      case 'FILTER_EMAILS': {
+        const p = action.payload || {};
+        const unread = p.unread === true || p.isUnread === true;
+        const sender = typeof p.sender === 'string' ? p.sender : '';
+        const keyword = typeof p.keyword === 'string' ? p.keyword : '';
+        const dateRange = typeof p.dateRange === 'string' ? p.dateRange : null;
+
+        // Navigate to inbox to show filtered results
+        setActiveFolder('inbox');
+        setFilterTab(unread ? 'unread' : 'all');
+        setSearchQuery(sender || keyword);
+        setAiDateRange(dateRange);
+        break;
+      }
+
+      case 'SEARCH_EMAILS': {
+        const p = action.payload || {};
+        const query = typeof p.query === 'string' ? p.query
+          : typeof p.keyword === 'string' ? p.keyword
+          : typeof p.sender === 'string' ? p.sender : '';
+        setSearchQuery(query);
+        break;
+      }
+
+      case 'OPEN_EMAIL': {
+        const p = action.payload || {};
+        const emailId = typeof p.emailId === 'string' ? p.emailId : null;
+        if (emailId) {
+          setSelectedEmailId(emailId);
+        } else if (p.sender || p.keyword) {
+          // Try to find by sender name/email or subject keyword
+          const query = String(p.sender || p.keyword || '').toLowerCase();
+          const match = emails.find(e =>
+            e.sender.name.toLowerCase().includes(query) ||
+            e.sender.email.toLowerCase().includes(query) ||
+            e.subject.toLowerCase().includes(query)
+          );
+          if (match) setSelectedEmailId(match.id);
+        }
+        break;
+      }
+
+      case 'PREPARE_REPLY': {
+        if (selectedEmail) {
+          openCompose({
+            to: selectedEmail.sender.email,
+            subject: selectedEmail.subject.startsWith('Re:')
+              ? selectedEmail.subject
+              : `Re: ${selectedEmail.subject}`,
+          });
+        }
+        break;
+      }
+
+      case 'UNKNOWN':
+      default:
+        // No UI action — description message is enough
+        break;
+    }
+  }, [
+    setActiveFolder, openCompose, setFilterTab, setSearchQuery,
+    setAiDateRange, setSelectedEmailId, emails, selectedEmail,
+  ]);
+
+  const executeBackendCommand = useCallback(async (userText: string) => {
+    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setMessages(prev => [...prev, {
       id: `user-${Date.now()}`,
       sender: 'user',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp,
       text: userText,
-    };
-    setMessages(prev => [...prev, userMsg]);
-
-    // 1. Thinking
+    }]);
     setStatus('thinking');
-    setStatusMessage(steps.thinking);
-    await new Promise(r => setTimeout(r, 650));
+    setStatusMessage('Analyzing your request…');
 
-    // 2. Processing
-    setStatus('processing');
-    setStatusMessage(steps.processing);
-    await new Promise(r => setTimeout(r, 750));
+    try {
+      const currentView = selectedEmail ? 'EMAIL_DETAIL' : activeFolder.toUpperCase();
+      setStatusMessage('Sending to AI Copilot…');
+      const result = await interpretAiCommand(userText, currentView, selectedEmail, {
+        activeFolder,
+        activeLabel,
+        filterTab,
+      });
 
-    // 3. Executing (if present)
-    if (steps.executing) {
       setStatus('executing');
-      setStatusMessage(steps.executing);
-      await new Promise(r => setTimeout(r, 600));
-    }
+      setStatusMessage('Applying action…');
 
-    // 4. Completed
-    setStatus('completed');
-    setStatusMessage('Done!');
-    const aiResponse = generateResponse();
-    setMessages(prev => [...prev, aiResponse]);
+      // Execute the action through React state (NO DOM automation)
+      executeAction(result.action);
 
-    setTimeout(() => {
-      setStatus('idle');
-      setStatusMessage('');
-    }, 1800);
-  };
-
-  const summarizeCurrentEmail = useCallback(async () => {
-    if (!selectedEmail) {
-      setMessages(prev => [
-        ...prev,
-        {
-          id: `ai-${Date.now()}`,
-          sender: 'assistant',
-          timestamp: 'Just now',
-          text: 'Please select an email first so I can analyze its content.',
-        },
-      ]);
-      return;
-    }
-
-    await runWithPhases(
-      `Summarize: "${selectedEmail.subject}"`,
-      {
-        thinking: 'Parsing email thread and sender context...',
-        processing: 'Extracting key takeaways, dates, and deliverables...',
-      },
-      () => ({
+      setStatus('completed');
+      setStatusMessage('Done.');
+      setMessages(prev => [...prev, {
         id: `ai-${Date.now()}`,
         sender: 'assistant',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        text: `Here is a structured executive summary for **${selectedEmail.subject}**:`,
-        summaryBullets: [
-          `**Sender**: ${selectedEmail.sender.name} (${selectedEmail.sender.email})`,
-          `**Core Topic**: Discussion on milestone timelines, architecture deliverables, and budget approval.`,
-          `**Key Takeaways**: Security audit cleared cloud migration, liberating $45k for front-end optimizations.`,
-          `**Action Required**: Feedback requested by tomorrow afternoon before executive presentation.`,
-        ],
-      })
-    );
-  }, [selectedEmail]);
-
-  const draftReplyCurrentEmail = useCallback(async () => {
-    if (!selectedEmail) {
-      setMessages(prev => [
-        ...prev,
-        {
-          id: `ai-${Date.now()}`,
-          sender: 'assistant',
-          timestamp: 'Just now',
-          text: 'Please select an email thread first to generate a contextual draft.',
-        },
-      ]);
-      return;
-    }
-
-    const replySubject = selectedEmail.subject.startsWith('Re:')
-      ? selectedEmail.subject
-      : `Re: ${selectedEmail.subject}`;
-
-    const replyBody = `Hi ${selectedEmail.sender.name.split(' ')[0]},\n\nThank you for the detailed update and the attachments. I've reviewed the points and everything looks aligned with our Q3 commitments.\n\nThe cloud sandbox migration approval is fantastic news. Let's proceed with the vendor onboarding and I will share final slide notes tomorrow morning.\n\nBest regards,\nAlex`;
-
-    await runWithPhases(
-      `Draft reply to ${selectedEmail.sender.name}`,
-      {
-        thinking: 'Analyzing tone and previous messages in thread...',
-        processing: 'Formulating professional, constructive response...',
-      },
-      () => ({
+        timestamp,
+        text: describeExecutedAction(result.action),
+      }]);
+    } catch (error) {
+      setStatus('error');
+      const errorMessage = error instanceof Error
+        ? error.message
+        : 'Unable to reach AI Copilot.';
+      setStatusMessage(errorMessage);
+      setMessages(prev => [...prev, {
         id: `ai-${Date.now()}`,
         sender: 'assistant',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        text: `I've prepared a draft reply tailored to **${selectedEmail.sender.name}**:`,
-        suggestedReply: {
-          subject: replySubject,
-          body: replyBody,
-        },
-      })
-    );
-  }, [selectedEmail]);
-
-  const findEmailsFromJohn = useCallback(async () => {
-    await runWithPhases(
-      'Find unread emails from John',
-      {
-        thinking: 'Scanning contacts and index for "John"...',
-        processing: 'Filtering active unread messages...',
-        executing: 'Applying search view to mail client...',
-      },
-      () => {
-        setSearchQuery('John');
-        setFilterTab('unread');
-        setActiveFolder('inbox');
-        const count = emails.filter(
-          e => e.sender.name.toLowerCase().includes('john') && !e.isRead
-        ).length;
-
-        return {
-          id: `ai-${Date.now()}`,
-          sender: 'assistant',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          text: `Found **${count} unread email(s)** from John Miller. I have filtered your inbox view to display them.`,
-        };
-      }
-    );
-  }, [emails, setSearchQuery, setFilterTab, setActiveFolder]);
-
-  const showEmailsNeedingResponse = useCallback(async () => {
-    await runWithPhases(
-      'Show emails that need my response',
-      {
-        thinking: 'Analyzing intent and pending questions across all threads...',
-        processing: 'Ranking high-priority inbound requests...',
-        executing: 'Updating workspace filters...',
-      },
-      () => {
-        const needy = emails.filter(e => e.needsResponse);
-        setFilterTab('important');
-        return {
-          id: `ai-${Date.now()}`,
-          sender: 'assistant',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          text: `Identified **${needy.length} email(s)** requiring your urgent attention or response. Switched filter to **Important** view.`,
-        };
-      }
-    );
-  }, [emails, setFilterTab]);
-
-  const proposeArchivePromotions = useCallback(async () => {
-    const promoEmails = emails.filter(e => e.labels.includes('Promotions') && e.folder !== 'trash');
-
-    if (promoEmails.length === 0) {
-      await runWithPhases(
-        'Archive promotional emails',
-        {
-          thinking: 'Scanning folders for promotional tags...',
-          processing: 'Zero promotional emails found.',
-        },
-        () => ({
-          id: `ai-${Date.now()}`,
-          sender: 'assistant',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          text: 'Great news! There are currently no promotional emails in your inbox.',
-        })
-      );
-      return;
+        timestamp,
+        text: `I couldn't process that request. ${errorMessage}`,
+      }]);
+    } finally {
+      setTimeout(() => {
+        setStatus('idle');
+        setStatusMessage('');
+      }, 2000);
     }
+  }, [activeFolder, activeLabel, filterTab, selectedEmail, executeAction]);
 
-    const proposal: ActionProposal = {
-      id: `action-${Date.now()}`,
-      type: 'archive_promotions',
-      title: `Archive ${promoEmails.length} Promotional Emails`,
-      description: `This will move ${promoEmails.length} marketing and newsletter emails into Trash. You can recover them anytime within 30 days.`,
-      targetEmailIds: promoEmails.map(e => e.id),
-      destructive: true,
-    };
-
-    setPendingAction(proposal);
-
-    await runWithPhases(
-      'Archive promotional emails',
-      {
-        thinking: 'Detecting marketing emails and newsletters...',
-        processing: 'Preparing batch archive action...',
-      },
-      () => ({
-        id: `ai-${Date.now()}`,
-        sender: 'assistant',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        text: `I identified **${promoEmails.length} promotional email(s)**. Because this modifies your inbox, please confirm below:`,
-        actionProposal: proposal,
-      })
-    );
-  }, [emails]);
+  const summarizeCurrentEmail = useCallback(() =>
+    executeBackendCommand('Summarize this email thread and highlight action items.'),
+    [executeBackendCommand]);
+  const draftReplyCurrentEmail = useCallback(() =>
+    executeBackendCommand('Draft a reply to this email.'),
+    [executeBackendCommand]);
+  const findEmailsFromJohn = useCallback(() =>
+    executeBackendCommand('Find unread emails from John.'),
+    [executeBackendCommand]);
+  const showEmailsNeedingResponse = useCallback(() =>
+    executeBackendCommand('Show emails that need my response.'),
+    [executeBackendCommand]);
+  const proposeArchivePromotions = useCallback(() =>
+    executeBackendCommand('Show promotional and marketing emails.'),
+    [executeBackendCommand]);
 
   const confirmAction = useCallback(async (action: ActionProposal) => {
-    setStatus('executing');
-    setStatusMessage(`Executing: ${action.title}...`);
-    await new Promise(r => setTimeout(r, 900));
-
-    if (action.type === 'archive_promotions') {
-      archiveEmails(action.targetEmailIds);
-    }
-
-    setStatus('completed');
-    setStatusMessage('Action executed successfully!');
+    setStatus('error');
+    setStatusMessage('Destructive batch actions require explicit confirmation.');
     setPendingAction(null);
-
     setMessages(prev => [
       ...prev,
       {
         id: `ai-${Date.now()}`,
         sender: 'assistant',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        text: `Successfully executed: **${action.title}**. Your inbox has been updated.`,
+        text: `I understood **${action.title}**, but destructive actions require explicit human approval before executing.`,
       },
     ]);
-
-    setTimeout(() => {
-      setStatus('idle');
-      setStatusMessage('');
-    }, 2000);
-  }, [archiveEmails]);
+    setTimeout(() => setStatus('idle'), 2000);
+  }, []);
 
   const cancelAction = useCallback(() => {
     setPendingAction(null);
@@ -341,59 +343,15 @@ export const AICopilotProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         id: `ai-${Date.now()}`,
         sender: 'assistant',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        text: 'Action was cancelled. No changes were made to your mailbox.',
+        text: 'Action cancelled. No changes were made to your mailbox.',
       },
     ]);
   }, []);
 
   const sendMessage = useCallback(async (prompt: string) => {
-    const p = prompt.trim().toLowerCase();
-    if (!p) return;
-
-    if (p.includes('summariz')) {
-      await summarizeCurrentEmail();
-    } else if (p.includes('draft') || p.includes('reply')) {
-      await draftReplyCurrentEmail();
-    } else if (p.includes('john')) {
-      await findEmailsFromJohn();
-    } else if (p.includes('need') || p.includes('response')) {
-      await showEmailsNeedingResponse();
-    } else if (p.includes('promo') || p.includes('archive')) {
-      await proposeArchivePromotions();
-    } else if (p.includes('compose') || p.includes('write')) {
-      openCompose({ subject: 'AI Generated Draft', body: 'Draft generated based on your prompt.' });
-      setMessages(prev => [
-        ...prev,
-        {
-          id: `ai-${Date.now()}`,
-          sender: 'assistant',
-          timestamp: 'Just now',
-          text: 'Opened a new compose window with a draft template for you.',
-        },
-      ]);
-    } else {
-      await runWithPhases(
-        prompt,
-        {
-          thinking: 'Analyzing instruction and mail database...',
-          processing: 'Formulating assistance response...',
-        },
-        () => ({
-          id: `ai-${Date.now()}`,
-          sender: 'assistant',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          text: `I've processed your request: "${prompt}". You can also click the quick prompt pills above to summarize emails, draft replies, or filter by sender.`,
-        })
-      );
-    }
-  }, [
-    summarizeCurrentEmail,
-    draftReplyCurrentEmail,
-    findEmailsFromJohn,
-    showEmailsNeedingResponse,
-    proposeArchivePromotions,
-    openCompose,
-  ]);
+    const trimmedPrompt = prompt.trim();
+    if (trimmedPrompt) await executeBackendCommand(trimmedPrompt);
+  }, [executeBackendCommand]);
 
   return (
     <AICopilotContext.Provider

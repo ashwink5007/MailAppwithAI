@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { CopilotKitProvider } from "../components/ai/CopilotKitProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,7 +29,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="h-full bg-slate-50 text-slate-900 overflow-hidden">
-        {children}
+        <CopilotKitProvider>{children}</CopilotKitProvider>
       </body>
     </html>
   );
