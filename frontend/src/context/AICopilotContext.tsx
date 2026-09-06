@@ -320,7 +320,7 @@ export const AICopilotProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     [executeBackendCommand]);
 
   const confirmAction = useCallback(async (action: ActionProposal) => {
-    setStatus('error');
+    setStatus('completed');
     setStatusMessage('Destructive batch actions require explicit confirmation.');
     setPendingAction(null);
     setMessages(prev => [

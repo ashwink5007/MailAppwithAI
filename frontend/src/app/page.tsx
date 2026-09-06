@@ -6,8 +6,6 @@ import { EmailProvider } from '../context/EmailContext';
 import { AICopilotProvider } from '../context/AICopilotContext';
 import { MainLayout } from '../components/layout/MainLayout';
 import { LoginPage } from '../components/auth/LoginPage';
-import { MailCopilotTools } from '../components/ai/MailCopilotTools';
-
 function AppContent() {
   const { isAuthenticated } = useAuth();
 
@@ -18,7 +16,6 @@ function AppContent() {
   return (
     <EmailProvider>
       <AICopilotProvider>
-        <MailCopilotTools />
         <MainLayout />
       </AICopilotProvider>
     </EmailProvider>

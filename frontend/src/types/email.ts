@@ -5,7 +5,8 @@ export type FolderId =
   | 'drafts' 
   | 'important' 
   | 'spam' 
-  | 'trash';
+  | 'trash'
+  | 'archive';
 
 export type EmailLabel = 'Work' | 'Personal' | 'Urgent' | 'Finance' | 'Social' | 'Promotions';
 

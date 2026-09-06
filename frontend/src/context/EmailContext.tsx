@@ -182,7 +182,7 @@ export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const archiveEmails = useCallback((ids: string[]) => {
     setEmails(prev => prev.map(email => 
-      ids.includes(email.id) ? { ...email, folder: 'trash' } : email
+      ids.includes(email.id) ? { ...email, folder: 'archive' } : email
     ));
     setSelectedEmailIds(prev => prev.filter(id => !ids.includes(id)));
   }, []);
@@ -195,11 +195,14 @@ export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const sendEmail = useCallback(async (data: { to: string; subject: string; body: string; cc?: string; bcc?: string }) => {
-    await sendEmailRequest(data);
-    const refreshedEmails = await getAllEmails();
-    setEmails(refreshedEmails);
-    setIsComposeOpen(false);
-    setComposeData(null);
+    try {
+      await sendEmailRequest(data);
+      const refreshedEmails = await getAllEmails();
+      setEmails(refreshedEmails);
+    } finally {
+      setIsComposeOpen(false);
+      setComposeData(null);
+    }
   }, []);
 
   const sendReply = useCallback(async (emailId: string, text: string) => {
@@ -220,10 +223,52 @@ export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Filtered emails logic
   const filteredEmails = useMemo(() => {
+    const parseRelativeDate = (fullDate: string): Date | null => {
+      const now = new Date();
+      const timeMatch = fullDate.match(/(\d{1,2}:\d{2}\s*(?:AM|PM))/i);
+      const timeStr = timeMatch ? timeMatch[1] : '';
+      const parseTime = (t: string) => {
+        const m = t.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+        if (!m) return { hours: 0, minutes: 0 };
+        let hours = parseInt(m[1], 10);
+        const minutes = parseInt(m[2], 10);
+        if (m[3].toUpperCase() === 'PM' && hours !== 12) hours += 12;
+        if (m[3].toUpperCase() === 'AM' && hours === 12) hours = 0;
+        return { hours, minutes };
+      };
+
+      if (fullDate.toLowerCase().startsWith('today')) {
+        const d = new Date(now);
+        const t = parseTime(timeStr);
+        d.setHours(t.hours, t.minutes, 0, 0);
+        return d;
+      }
+      if (fullDate.toLowerCase().startsWith('yesterday')) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - 1);
+        const t = parseTime(timeStr);
+        d.setHours(t.hours, t.minutes, 0, 0);
+        return d;
+      }
+      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      for (let i = 0; i < dayNames.length; i++) {
+        if (fullDate.toLowerCase().startsWith(dayNames[i])) {
+          const d = new Date(now);
+          const diff = (now.getDay() - i + 7) % 7 || 7;
+          d.setDate(d.getDate() - diff);
+          const t = parseTime(timeStr);
+          d.setHours(t.hours, t.minutes, 0, 0);
+          return d;
+        }
+      }
+      const standard = new Date(fullDate);
+      return Number.isNaN(standard.getTime()) ? null : standard;
+    };
+
     const isInDateRange = (email: Email) => {
       if (!aiDateRange) return true;
-      const emailDate = new Date(email.fullDate.replace(' at ', ' '));
-      if (Number.isNaN(emailDate.getTime())) return true;
+      const emailDate = parseRelativeDate(email.fullDate);
+      if (!emailDate) return true;
       const now = new Date();
       const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const endOfToday = new Date(startOfToday);
@@ -305,6 +350,7 @@ export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       important: emails.filter(e => e.isImportant).length,
       spam: emails.filter(e => e.folder === 'spam').length,
       trash: emails.filter(e => e.folder === 'trash').length,
+      archive: emails.filter(e => e.folder === 'archive').length,
     };
     return counts;
   }, [emails]);
