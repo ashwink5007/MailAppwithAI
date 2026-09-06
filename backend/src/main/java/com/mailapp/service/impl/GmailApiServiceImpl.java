@@ -137,8 +137,9 @@ public class GmailApiServiceImpl implements EmailService {
         try {
             Message original = service.users().messages().get("me", id).setFormat("full").execute();
             Map<String, String> headers = extractHeaders(original);
-            String sender = headers.get("From");
-            if (sender == null || sender.isBlank()) {
+            String replyTo = headers.get("Reply-To");
+            String targetAddress = (replyTo != null && !replyTo.isBlank()) ? replyTo : headers.get("From");
+            if (targetAddress == null || targetAddress.isBlank()) {
                 throw new IllegalArgumentException("The original email has no sender address");
             }
             String references = headers.get("References");
@@ -149,12 +150,12 @@ public class GmailApiServiceImpl implements EmailService {
                         ? references
                         : references + " " + messageIdHeader);
             MimeMessage reply = createMimeMessage(
-                    extractAddress(sender), null, null,
+                    extractAddress(targetAddress), null, null,
                     replySubject(headers.get("Subject")), request.body(),
                     messageIdHeader, combinedReferences);
             String sentMessageId = sendMimeMessage(service, reply, original.getThreadId());
             System.out.println("Reply sent successfully. Original message ID: " + id
-                    + ", recipient: " + extractAddress(sender));
+                    + ", recipient: " + extractAddress(targetAddress));
             return sentMessageId;
         } catch (IllegalArgumentException e) {
             throw e;
@@ -167,9 +168,12 @@ public class GmailApiServiceImpl implements EmailService {
     public void markAsRead(String id) {
         Gmail service = requireGmailService();
         try {
-            Message message = service.users().messages().get("me", id).setFormat("minimal").execute();
-            List<String> labels = message.getLabelIds() == null ? List.of() : message.getLabelIds();
-            if (labels.contains("UNREAD")) {
+            Message message = service.users().messages().get("me", id).setFields("threadId").execute();
+            if (message.getThreadId() != null) {
+                System.out.println("Marking Gmail thread as read. Thread ID: " + message.getThreadId());
+                service.users().threads().modify("me", message.getThreadId(),
+                        new com.google.api.services.gmail.model.ModifyThreadRequest().setRemoveLabelIds(List.of("UNREAD"))).execute();
+            } else {
                 System.out.println("Marking Gmail message as read. Message ID: " + id);
                 service.users().messages().modify("me", id,
                         new ModifyMessageRequest().setRemoveLabelIds(List.of("UNREAD"))).execute();
@@ -183,8 +187,14 @@ public class GmailApiServiceImpl implements EmailService {
     public void moveToTrash(String id) {
         Gmail service = requireGmailService();
         try {
-            System.out.println("Moving Gmail message to trash. Message ID: " + id);
-            service.users().messages().trash("me", id).execute();
+            Message message = service.users().messages().get("me", id).setFields("threadId").execute();
+            if (message.getThreadId() != null) {
+                System.out.println("Moving Gmail thread to trash. Thread ID: " + message.getThreadId());
+                service.users().threads().trash("me", message.getThreadId()).execute();
+            } else {
+                System.out.println("Moving Gmail message to trash. Message ID: " + id);
+                service.users().messages().trash("me", id).execute();
+            }
         } catch (Exception e) {
             throw new IllegalStateException("Failed to move email to trash through Gmail", e);
         }
@@ -207,6 +217,7 @@ public class GmailApiServiceImpl implements EmailService {
             String inReplyTo,
             String references) throws Exception {
         MimeMessage message = new MimeMessage(Session.getInstance(new Properties()));
+        message.setFrom(new InternetAddress(getCurrentUserEmail()));
         message.setRecipient(RecipientType.TO, new InternetAddress(to));
         addRecipients(message, RecipientType.CC, cc);
         addRecipients(message, RecipientType.BCC, bcc);
@@ -336,21 +347,22 @@ public class GmailApiServiceImpl implements EmailService {
         }
 
         String folder = labelId.equals("SENT") ? "sent" : "inbox";
-        List<EmailDto> result = new ArrayList<>();
-
-        for (Message stub : messages) {
-            try {
-                Message full = service.users().messages()
-                        .get("me", stub.getId())
-                        .setFormat("full")
-                        .execute();
-                result.add(mapMessageToDto(full, folder));
-            } catch (Exception e) {
-                // Skip individual message failures; log and continue
-                System.err.println("Failed to fetch message " + stub.getId() + ": " + e.getMessage());
-            }
-        }
-        return result;
+        
+        return messages.parallelStream()
+                .map(stub -> {
+                    try {
+                        Message full = service.users().messages()
+                                .get("me", stub.getId())
+                                .setFormat("full")
+                                .execute();
+                        return mapMessageToDto(full, folder);
+                    } catch (Exception e) {
+                        System.err.println("Failed to fetch message " + stub.getId() + ": " + e.getMessage());
+                        return null;
+                    }
+                })
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toList());
     }
 
     // ── MIME mapping ────────────────────────────────────────────────────────

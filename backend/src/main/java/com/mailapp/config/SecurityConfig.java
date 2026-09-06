@@ -15,6 +15,7 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -83,13 +84,11 @@ public class SecurityConfig {
         return (HttpServletRequest request, HttpServletResponse response, AuthenticationException authException) -> {
             response.setStatus(HttpStatus.UNAUTHORIZED.value());
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            String body = new ObjectMapper().writeValueAsString(
-                Map.of(
-                    "success", false,
-                    "message", "Not authenticated. Please login via Google OAuth.",
-                    "data", (Object) null
-                )
-            );
+            Map<String, Object> errorResponse = new LinkedHashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Not authenticated. Please login via Google OAuth.");
+            errorResponse.put("data", null);
+            String body = new ObjectMapper().writeValueAsString(errorResponse);
             response.getWriter().write(body);
         };
     }
