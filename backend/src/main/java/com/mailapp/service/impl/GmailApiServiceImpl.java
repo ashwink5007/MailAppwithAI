@@ -50,9 +50,9 @@ import java.util.Map;
  * authenticates with Google to call the Gmail REST API on their behalf.
  *
  * MIME parsing strategy:
- *   - Walk the message parts tree to find text/html first, then text/plain.
- *   - Decode the selected part from Base64url encoding.
- *   - Extract standard headers (From, To, Cc, Bcc, Subject, Date).
+ * - Walk the message parts tree to find text/html first, then text/plain.
+ * - Decode the selected part from Base64url encoding.
+ * - Extract standard headers (From, To, Cc, Bcc, Subject, Date).
  *
  * Missing OAuth sessions and Gmail failures are returned as API errors rather
  * than being replaced with mock data.
@@ -65,6 +65,7 @@ public class GmailApiServiceImpl implements EmailService {
     private static final String APPLICATION_NAME = "AiMail";
 
     private final OAuth2AuthorizedClientService authorizedClientService;
+
     public GmailApiServiceImpl(
             OAuth2AuthorizedClientService authorizedClientService) {
         this.authorizedClientService = authorizedClientService;
@@ -91,8 +92,8 @@ public class GmailApiServiceImpl implements EmailService {
         }
 
         String accessToken = client.getAccessToken().getTokenValue();
-        HttpRequestInitializer requestInitializer =
-                request -> request.getHeaders().setAuthorization("Bearer " + accessToken);
+        HttpRequestInitializer requestInitializer = request -> request.getHeaders()
+                .setAuthorization("Bearer " + accessToken);
 
         try {
             return new Gmail.Builder(
@@ -147,8 +148,8 @@ public class GmailApiServiceImpl implements EmailService {
             String combinedReferences = references == null || references.isBlank()
                     ? messageIdHeader
                     : (messageIdHeader == null || messageIdHeader.isBlank()
-                        ? references
-                        : references + " " + messageIdHeader);
+                            ? references
+                            : references + " " + messageIdHeader);
             MimeMessage reply = createMimeMessage(
                     extractAddress(targetAddress), null, null,
                     replySubject(headers.get("Subject")), request.body(),
@@ -172,7 +173,9 @@ public class GmailApiServiceImpl implements EmailService {
             if (message.getThreadId() != null) {
                 System.out.println("Marking Gmail thread as read. Thread ID: " + message.getThreadId());
                 service.users().threads().modify("me", message.getThreadId(),
-                        new com.google.api.services.gmail.model.ModifyThreadRequest().setRemoveLabelIds(List.of("UNREAD"))).execute();
+                        new com.google.api.services.gmail.model.ModifyThreadRequest()
+                                .setRemoveLabelIds(List.of("UNREAD")))
+                        .execute();
             } else {
                 System.out.println("Marking Gmail message as read. Message ID: " + id);
                 service.users().messages().modify("me", id,
@@ -223,8 +226,10 @@ public class GmailApiServiceImpl implements EmailService {
         addRecipients(message, RecipientType.BCC, bcc);
         message.setSubject(subject == null ? "" : subject, StandardCharsets.UTF_8.name());
         message.setText(body, StandardCharsets.UTF_8.name());
-        if (inReplyTo != null && !inReplyTo.isBlank()) message.setHeader("In-Reply-To", inReplyTo);
-        if (references != null && !references.isBlank()) message.setHeader("References", references);
+        if (inReplyTo != null && !inReplyTo.isBlank())
+            message.setHeader("In-Reply-To", inReplyTo);
+        if (references != null && !references.isBlank())
+            message.setHeader("References", references);
         return message;
     }
 
@@ -239,7 +244,8 @@ public class GmailApiServiceImpl implements EmailService {
         mimeMessage.writeTo(output);
         String encoded = Base64.getUrlEncoder().withoutPadding().encodeToString(output.toByteArray());
         Message gmailMessage = new Message().setRaw(encoded);
-        if (threadId != null && !threadId.isBlank()) gmailMessage.setThreadId(threadId);
+        if (threadId != null && !threadId.isBlank())
+            gmailMessage.setThreadId(threadId);
         System.out.println("Calling Gmail API messages.send");
         Message response = service.users().messages().send("me", gmailMessage).execute();
         if (response == null || response.getId() == null || response.getId().isBlank()) {
@@ -261,7 +267,8 @@ public class GmailApiServiceImpl implements EmailService {
     }
 
     private String replySubject(String subject) {
-        if (subject == null || subject.isBlank()) return "Re:";
+        if (subject == null || subject.isBlank())
+            return "Re:";
         return subject.regionMatches(true, 0, "Re:", 0, 3) ? subject : "Re: " + subject;
     }
 
@@ -270,12 +277,13 @@ public class GmailApiServiceImpl implements EmailService {
     @Override
     public List<EmailDto> getAllEmails() {
         Gmail service = getGmailService();
-        if (service == null) throw new IllegalStateException("No authenticated Gmail session is available");
+        if (service == null)
+            throw new IllegalStateException("No authenticated Gmail session is available");
         try {
             // Fetch across all labels — inbox + sent combined gives "All Mail" view
             List<EmailDto> inbox = fetchMessages(service, "INBOX", MAX_RESULTS / 2);
-            List<EmailDto> sent  = fetchMessages(service, "SENT",  MAX_RESULTS / 2);
-            List<EmailDto> all   = new ArrayList<>();
+            List<EmailDto> sent = fetchMessages(service, "SENT", MAX_RESULTS / 2);
+            List<EmailDto> all = new ArrayList<>();
             all.addAll(inbox);
             all.addAll(sent);
             return all;
@@ -287,7 +295,8 @@ public class GmailApiServiceImpl implements EmailService {
     @Override
     public List<EmailDto> getInboxEmails() {
         Gmail service = getGmailService();
-        if (service == null) throw new IllegalStateException("No authenticated Gmail session is available");
+        if (service == null)
+            throw new IllegalStateException("No authenticated Gmail session is available");
         try {
             return fetchMessages(service, "INBOX", MAX_RESULTS);
         } catch (Exception e) {
@@ -298,7 +307,8 @@ public class GmailApiServiceImpl implements EmailService {
     @Override
     public List<EmailDto> getSentEmails() {
         Gmail service = getGmailService();
-        if (service == null) throw new IllegalStateException("No authenticated Gmail session is available");
+        if (service == null)
+            throw new IllegalStateException("No authenticated Gmail session is available");
         try {
             return fetchMessages(service, "SENT", MAX_RESULTS);
         } catch (Exception e) {
@@ -309,7 +319,8 @@ public class GmailApiServiceImpl implements EmailService {
     @Override
     public EmailDto getEmailById(String id) {
         Gmail service = getGmailService();
-        if (service == null) throw new IllegalStateException("No authenticated Gmail session is available");
+        if (service == null)
+            throw new IllegalStateException("No authenticated Gmail session is available");
         try {
             Message message = service.users().messages()
                     .get("me", id)
@@ -347,7 +358,7 @@ public class GmailApiServiceImpl implements EmailService {
         }
 
         String folder = labelId.equals("SENT") ? "sent" : "inbox";
-        
+
         return messages.parallelStream()
                 .map(stub -> {
                     try {
@@ -376,25 +387,23 @@ public class GmailApiServiceImpl implements EmailService {
     private EmailDto mapMessageToDto(Message message, String folder) {
         Map<String, String> headers = extractHeaders(message);
 
-        String from      = headers.getOrDefault("From", "Unknown <unknown@gmail.com>");
-        String to        = headers.getOrDefault("To", "");
-        String cc        = headers.getOrDefault("Cc", "");
-        String subject   = headers.getOrDefault("Subject", "(no subject)");
-        String dateHeader = headers.getOrDefault("Date", "");
-
+        String from = headers.getOrDefault("From", "Unknown <unknown@gmail.com>");
+        String to = headers.getOrDefault("To", "");
+        String cc = headers.getOrDefault("Cc", "");
+        String subject = headers.getOrDefault("Subject", "(no subject)");
         EmailSenderDto sender = parseSender(from);
         List<String> recipients = parseAddressList(to);
-        List<String> ccList  = parseAddressList(cc);
+        List<String> ccList = parseAddressList(cc);
 
-        String body    = extractBody(message.getPayload());
+        String body = extractBody(message.getPayload());
         String snippet = message.getSnippet() != null ? message.getSnippet() : "";
         String timestamp = formatTimestamp(message.getInternalDate());
-        String fullDate  = formatFullDate(message.getInternalDate());
+        String fullDate = formatFullDate(message.getInternalDate());
 
         // Determine flags from Gmail label IDs
         List<String> labelIds = message.getLabelIds() != null ? message.getLabelIds() : List.of();
-        boolean isRead      = !labelIds.contains("UNREAD");
-        boolean isStarred   = labelIds.contains("STARRED");
+        boolean isRead = !labelIds.contains("UNREAD");
+        boolean isStarred = labelIds.contains("STARRED");
         boolean isImportant = labelIds.contains("IMPORTANT");
 
         // Build the single thread message (full body)
@@ -429,13 +438,19 @@ public class GmailApiServiceImpl implements EmailService {
 
     /** Derives a folder name from Gmail label IDs on the message. */
     private String deriveFolder(Message message) {
-        if (message.getLabelIds() == null) return "inbox";
+        if (message.getLabelIds() == null)
+            return "inbox";
         List<String> labels = message.getLabelIds();
-        if (labels.contains("SENT"))      return "sent";
-        if (labels.contains("DRAFT"))     return "drafts";
-        if (labels.contains("SPAM"))      return "spam";
-        if (labels.contains("TRASH"))     return "trash";
-        if (labels.contains("INBOX"))     return "inbox";
+        if (labels.contains("SENT"))
+            return "sent";
+        if (labels.contains("DRAFT"))
+            return "drafts";
+        if (labels.contains("SPAM"))
+            return "spam";
+        if (labels.contains("TRASH"))
+            return "trash";
+        if (labels.contains("INBOX"))
+            return "inbox";
         return "inbox";
     }
 
@@ -454,7 +469,8 @@ public class GmailApiServiceImpl implements EmailService {
     }
 
     /**
-     * Parses a "Display Name <email@example.com>" string into an {@link EmailSenderDto}.
+     * Parses a "Display Name <email@example.com>" string into an
+     * {@link EmailSenderDto}.
      * Falls back gracefully if the format is just "email@example.com".
      */
     private EmailSenderDto parseSender(String from) {
@@ -464,9 +480,10 @@ public class GmailApiServiceImpl implements EmailService {
         int lt = from.indexOf('<');
         int gt = from.indexOf('>');
         if (lt >= 0 && gt > lt) {
-            String name  = from.substring(0, lt).trim().replace("\"", "");
+            String name = from.substring(0, lt).trim().replace("\"", "");
             String email = from.substring(lt + 1, gt).trim();
-            if (name.isBlank()) name = email;
+            if (name.isBlank())
+                name = email;
             String avatar = "https://api.dicebear.com/7.x/initials/svg?seed="
                     + java.net.URLEncoder.encode(name, StandardCharsets.UTF_8)
                     + "&backgroundColor=2563eb&textColor=ffffff";
@@ -483,7 +500,8 @@ public class GmailApiServiceImpl implements EmailService {
      * Splits a comma-separated address list and returns just the email addresses.
      */
     private List<String> parseAddressList(String header) {
-        if (header == null || header.isBlank()) return List.of();
+        if (header == null || header.isBlank())
+            return List.of();
         List<String> result = new ArrayList<>();
         for (String part : header.split(",")) {
             part = part.trim();
@@ -505,7 +523,8 @@ public class GmailApiServiceImpl implements EmailService {
      * Preference order: text/html → text/plain → snippet fallback.
      */
     private String extractBody(MessagePart part) {
-        if (part == null) return "";
+        if (part == null)
+            return "";
 
         // Leaf part — try to decode directly
         String mimeType = part.getMimeType() != null ? part.getMimeType().toLowerCase(Locale.ROOT) : "";
@@ -515,15 +534,17 @@ public class GmailApiServiceImpl implements EmailService {
             }
         }
 
-        if (part.getParts() == null) return "";
+        if (part.getParts() == null)
+            return "";
 
         // Prefer HTML body when both text/html and text/plain are present
-        String htmlBody  = null;
+        String htmlBody = null;
         String plainBody = null;
 
         for (MessagePart child : part.getParts()) {
             String childMime = child.getMimeType() != null
-                    ? child.getMimeType().toLowerCase(Locale.ROOT) : "";
+                    ? child.getMimeType().toLowerCase(Locale.ROOT)
+                    : "";
 
             if (childMime.startsWith("text/html")) {
                 htmlBody = extractBody(child);
@@ -533,19 +554,23 @@ public class GmailApiServiceImpl implements EmailService {
                 // Recurse into nested multipart
                 String nested = extractBody(child);
                 if (!nested.isBlank()) {
-                    if (htmlBody == null) htmlBody = nested;
+                    if (htmlBody == null)
+                        htmlBody = nested;
                 }
             }
         }
 
-        if (htmlBody  != null && !htmlBody.isBlank())  return htmlBody;
-        if (plainBody != null && !plainBody.isBlank()) return plainBody;
+        if (htmlBody != null && !htmlBody.isBlank())
+            return htmlBody;
+        if (plainBody != null && !plainBody.isBlank())
+            return plainBody;
         return "";
     }
 
     /** Decodes Gmail's Base64url-encoded body data. */
     private String decodeBase64Url(String data) {
-        if (data == null || data.isBlank()) return "";
+        if (data == null || data.isBlank())
+            return "";
         try {
             byte[] decoded = Base64.getUrlDecoder().decode(data.replace("-", "+").replace("_", "/"));
             return new String(decoded, StandardCharsets.UTF_8);
@@ -556,19 +581,21 @@ public class GmailApiServiceImpl implements EmailService {
 
     // ── Timestamp formatting ────────────────────────────────────────────────
 
-    private static final DateTimeFormatter TIME_FMT =
-            DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH).withZone(ZoneId.systemDefault());
-    private static final DateTimeFormatter DATE_FMT =
-            DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH).withZone(ZoneId.systemDefault());
-    private static final DateTimeFormatter FULL_FMT =
-            DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy 'at' h:mm a", Locale.ENGLISH)
-                    .withZone(ZoneId.systemDefault());
+    private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)
+            .withZone(ZoneId.systemDefault());
+    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH)
+            .withZone(ZoneId.systemDefault());
+    private static final DateTimeFormatter FULL_FMT = DateTimeFormatter
+            .ofPattern("EEEE, MMMM d, yyyy 'at' h:mm a", Locale.ENGLISH)
+            .withZone(ZoneId.systemDefault());
 
     /**
-     * Returns a short human-readable timestamp: "10:45 AM" for today, "Sep 3" otherwise.
+     * Returns a short human-readable timestamp: "10:45 AM" for today, "Sep 3"
+     * otherwise.
      */
     private String formatTimestamp(Long internalDate) {
-        if (internalDate == null) return "";
+        if (internalDate == null)
+            return "";
         Instant instant = Instant.ofEpochMilli(internalDate);
         Instant dayStart = Instant.now().atZone(ZoneId.systemDefault())
                 .toLocalDate().atStartOfDay(ZoneId.systemDefault()).toInstant();
@@ -578,10 +605,12 @@ public class GmailApiServiceImpl implements EmailService {
     }
 
     /**
-     * Returns a full human-readable date: "Saturday, September 3, 2026 at 10:45 AM".
+     * Returns a full human-readable date: "Saturday, September 3, 2026 at 10:45
+     * AM".
      */
     private String formatFullDate(Long internalDate) {
-        if (internalDate == null) return "";
+        if (internalDate == null)
+            return "";
         return FULL_FMT.format(Instant.ofEpochMilli(internalDate));
     }
 }
