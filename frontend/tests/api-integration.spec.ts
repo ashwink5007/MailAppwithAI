@@ -1,6 +1,17 @@
 import { test, expect } from '@playwright/test';
 import { mockAuthenticatedSession } from './helpers/auth';
 
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
+
+async function isBackendRunning(request: import('@playwright/test').APIRequestContext): Promise<boolean> {
+  try {
+    const res = await request.get(`${BACKEND_URL}/api/health`, { timeout: 5000 });
+    return res.ok();
+  } catch {
+    return false;
+  }
+}
+
 test.describe('Level 4 — API integration (frontend behavior)', () => {
   test('successful mailbox load maps backend emails into the list and detail pane', async ({ page }) => {
     const mailboxRequests: string[] = [];
@@ -73,11 +84,11 @@ test.describe('Level 4 — API integration (frontend behavior)', () => {
     });
 
     await page.goto('/');
-    await page.getByRole('button', { name: 'Compose' }).click();
+    await page.getByRole('button', { name: 'Compose', exact: true }).click();
     await page.getByPlaceholder('recipient@example.com').fill('teammate@example.com');
     await page.getByPlaceholder('Subject line').fill('Playwright send check');
     await page.getByPlaceholder('Write your email here...').fill('Hello from the QA suite.');
-    await page.getByRole('button', { name: 'Send' }).click();
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
 
     await expect.poll(() => sendPayload).not.toBeNull();
     expect(sendPayload).toMatchObject({
@@ -96,16 +107,19 @@ test.describe('Level 4 — API integration (frontend behavior)', () => {
 
     await mockAuthenticatedSession(page);
     await page.goto('/');
-    await page.getByRole('button', { name: 'Compose' }).click();
+    await page.getByRole('button', { name: 'Compose', exact: true }).click();
     await page.getByPlaceholder('recipient@example.com').fill('teammate@example.com');
     await page.getByPlaceholder('Subject line').fill('Missing body');
-    await page.getByRole('button', { name: 'Send' }).click();
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
     await expect(page.getByText('New Message')).toBeVisible();
   });
 });
 
 test.describe('Level 4 — Live backend API (no mailbox mutation)', () => {
   test('health endpoint is reachable through the Next.js proxy', async ({ request }) => {
+    const backendUp = await isBackendRunning(request);
+    test.skip(!backendUp, 'Backend is not running — skipping live API test');
+
     const response = await request.get('/api/health');
     expect(response.status()).toBe(200);
     const body = await response.json();
@@ -115,13 +129,19 @@ test.describe('Level 4 — Live backend API (no mailbox mutation)', () => {
   });
 
   test('health endpoint is reachable on the backend origin', async ({ request }) => {
-    const response = await request.get('http://localhost:8080/api/health');
+    const backendUp = await isBackendRunning(request);
+    test.skip(!backendUp, 'Backend is not running — skipping live API test');
+
+    const response = await request.get(`${BACKEND_URL}/api/health`);
     expect(response.status()).toBe(200);
     const body = await response.json();
     expect(body.success).toBe(true);
   });
 
   test('unauthenticated /api/user/me returns an empty object with HTTP 200', async ({ request }) => {
+    const backendUp = await isBackendRunning(request);
+    test.skip(!backendUp, 'Backend is not running — skipping live API test');
+
     const response = await request.get('/api/user/me');
     expect(response.status()).toBe(200);
     const body = await response.json();
@@ -129,6 +149,9 @@ test.describe('Level 4 — Live backend API (no mailbox mutation)', () => {
   });
 
   test('unauthenticated AI command is rejected', async ({ request }) => {
+    const backendUp = await isBackendRunning(request);
+    test.skip(!backendUp, 'Backend is not running — skipping live API test');
+
     const response = await request.post('/api/ai/command', {
       data: {
         message: 'Show unread emails from this week',

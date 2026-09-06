@@ -51,11 +51,11 @@ test.describe('Level 13 — Failure and edge cases', () => {
   test('compose To field uses native email validation for an invalid address', async ({ page }) => {
     await mockAuthenticatedSession(page);
     await page.goto('/');
-    await page.getByRole('button', { name: 'Compose' }).click();
+    await page.getByRole('button', { name: 'Compose', exact: true }).click();
     const toInput = page.getByPlaceholder('recipient@example.com');
     await toInput.fill('not-an-email');
     await page.getByPlaceholder('Write your email here...').fill('Body text');
-    await page.getByRole('button', { name: 'Send' }).click();
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
     const validationMessage = await toInput.evaluate((el) => (el as HTMLInputElement).validationMessage);
     expect(validationMessage.length).toBeGreaterThan(0);
     await expect(page.getByText('New Message')).toBeVisible();

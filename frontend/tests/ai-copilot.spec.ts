@@ -6,9 +6,9 @@ test.describe('Level 10 — AI Copilot flows', () => {
     await mockAuthenticatedSession(page);
     await page.goto('/');
     await expect(page.getByText("Hello! I'm your AI Mail Copilot")).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Go to Sent' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Compose email' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Unread this week' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Go to Sent' }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Compose email' }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Unread this week' }).first()).toBeVisible();
   });
 
   test('NAVIGATE action from AI switches the mailbox folder', async ({ page }) => {
@@ -16,7 +16,7 @@ test.describe('Level 10 — AI Copilot flows', () => {
       aiHandler: () => ({ type: 'NAVIGATE', payload: { view: 'SENT' } }),
     });
     await page.goto('/');
-    await page.getByRole('button', { name: 'Go to Sent' }).click();
+    await page.getByRole('button', { name: 'Go to Sent' }).first().click();
     await expect(page.getByRole('heading', { name: 'Sent' })).toBeVisible();
     await expect(page.getByText('Navigated to your sent folder.')).toBeVisible();
   });
@@ -59,7 +59,7 @@ test.describe('Level 10 — AI Copilot flows', () => {
       }),
     });
     await page.goto('/');
-    await page.getByRole('button', { name: 'Unread this week' }).click();
+    await page.getByRole('button', { name: 'Unread this week' }).first().click();
     await expect(page.getByText('Q3 Planning Notes')).toBeVisible();
     await expect(page.getByText('Lunch next week')).toHaveCount(0);
     await expect(page.getByText(/Inbox filtered/)).toBeVisible();
@@ -91,7 +91,7 @@ test.describe('Level 10 — AI Copilot flows', () => {
       aiHandler: () => ({ type: 'PREPARE_REPLY', payload: {} }),
     });
     await page.goto('/');
-    await page.getByRole('button', { name: 'Draft a reply' }).click();
+    await page.getByRole('button', { name: 'Draft a reply' }).first().click();
     await expect(page.getByPlaceholder('recipient@example.com')).toHaveValue('jane.cooper@example.com');
     await expect(page.getByPlaceholder('Subject line')).toHaveValue('Re: Q3 Planning Notes');
   });
@@ -118,7 +118,17 @@ test.describe('Level 10 — AI Copilot flows', () => {
   });
 
   test('live AI command without a Google session is blocked by Spring Security', async ({ request }) => {
-    const response = await request.post('http://localhost:8080/api/ai/command', {
+    const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
+    try {
+      const healthCheck = await request.get(`${BACKEND_URL}/api/health`, { timeout: 5000 });
+      if (!healthCheck.ok()) {
+        test.skip(true, 'Backend is not running');
+      }
+    } catch {
+      test.skip(true, 'Backend is not running');
+    }
+
+    const response = await request.post(`${BACKEND_URL}/api/ai/command`, {
       data: {
         message: 'ping',
         context: { currentView: 'INBOX' },

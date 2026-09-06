@@ -9,12 +9,12 @@ test.describe('Level 3 — UI', () => {
   });
 
   test('compose opens, validates recipient, and closes', async ({ page }) => {
-    await page.getByRole('button', { name: 'Compose' }).click();
+    await page.getByRole('button', { name: 'Compose', exact: true }).click();
     await expect(page.getByText('New Message')).toBeVisible();
     await expect(page.getByPlaceholder('recipient@example.com')).toBeVisible();
 
     page.once('dialog', (dialog) => dialog.dismiss());
-    await page.getByRole('button', { name: 'Send' }).click();
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
 
     await page.getByRole('button', { name: 'Cc' }).click();
     await expect(page.getByPlaceholder('colleague@example.com')).toBeVisible();
@@ -53,7 +53,7 @@ test.describe('Level 3 — UI', () => {
 
   test('selecting an email shows the thread and AI context banner', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'Q3 Planning Notes' })).toBeVisible();
-    await page.getByText('Lunch next week').click();
+    await page.getByText('Lunch next week').first().click();
     await expect(page.getByRole('heading', { name: 'Lunch next week' })).toBeVisible();
     await expect(page.getByText('Are you free for lunch on Tuesday?')).toBeVisible();
     await expect(page.getByText('Context: John Miller')).toBeVisible();
@@ -63,7 +63,7 @@ test.describe('Level 3 — UI', () => {
     await expect(page.getByPlaceholder('Ask Copilot or type a command...')).toBeVisible();
     await page.getByTitle('Collapse Copilot').click();
     await expect(page.getByPlaceholder('Ask Copilot or type a command...')).toHaveCount(0);
-    await page.getByRole('button', { name: /AI Copilot/ }).click();
+    await page.getByRole('button', { name: /AI Copilot/ }).first().click();
     await expect(page.getByPlaceholder('Ask Copilot or type a command...')).toBeVisible();
   });
 
@@ -74,10 +74,10 @@ test.describe('Level 3 — UI', () => {
   });
 
   test('inline reply is disabled until text is entered', async ({ page }) => {
-    await page.getByRole('button', { name: 'Reply' }).click();
+    await page.getByRole('button', { name: 'Reply', exact: true }).click();
     await expect(page.getByPlaceholder(/Write your reply/)).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Send' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled();
     await page.getByPlaceholder(/Write your reply/).fill('Thanks, noted.');
-    await expect(page.getByRole('button', { name: 'Send' })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeEnabled();
   });
 });

@@ -52,6 +52,10 @@ export async function mockAuthenticatedSession(page: Page, options: MockOptions 
   });
 
   await page.route(/\/api\/emails\/[^/]+\/reply$/, async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback();
+      return;
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -60,6 +64,10 @@ export async function mockAuthenticatedSession(page: Page, options: MockOptions 
   });
 
   await page.route(/\/api\/emails\/[^/]+\/read$/, async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback();
+      return;
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -133,5 +141,13 @@ export async function mockAuthenticatedSession(page: Page, options: MockOptions 
 
   await page.route('**/logout', async (route) => {
     await route.fulfill({ status: 200, body: 'ok' });
+  });
+
+  await page.route('**/copilotkit/**', async (route) => {
+    await route.fulfill({
+      status: 501,
+      contentType: 'application/json',
+      json: { error: 'CopilotKit not configured' },
+    });
   });
 }
