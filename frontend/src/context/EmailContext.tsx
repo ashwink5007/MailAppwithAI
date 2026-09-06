@@ -2,7 +2,13 @@
 
 import React, { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
 import { Email, FolderId, EmailLabel, EmailFilterTab } from '../types/email';
-import { generateUserEmails } from '../data/mockEmails';
+import {
+  deleteEmail,
+  getAllEmails,
+  markEmailAsRead,
+  sendEmail as sendEmailRequest,
+  sendReply as sendReplyRequest,
+} from '../services/emailService';
 import { useAuth } from './AuthContext';
 
 interface ComposeData {
@@ -21,6 +27,11 @@ interface EmailContextType {
   filterTab: EmailFilterTab;
   isComposeOpen: boolean;
   composeData: ComposeData | null;
+  // Loading / error states for backend integration
+  isLoading: boolean;
+  isError: boolean;
+  errorMessage: string | null;
+  retryLoad: () => void;
   setActiveFolder: (folder: FolderId) => void;
   setActiveLabel: (label: EmailLabel | null) => void;
   setSelectedEmailId: (id: string | null) => void;
@@ -31,12 +42,12 @@ interface EmailContextType {
   toggleStar: (id: string) => void;
   toggleImportant: (id: string) => void;
   toggleRead: (id: string) => void;
-  markAsRead: (ids: string[]) => void;
+  markAsRead: (ids: string[]) => Promise<void>;
   markAsUnread: (ids: string[]) => void;
   archiveEmails: (ids: string[]) => void;
-  deleteEmails: (ids: string[]) => void;
-  sendEmail: (data: { to: string; subject: string; body: string; cc?: string; bcc?: string }) => void;
-  sendReply: (emailId: string, text: string) => void;
+  deleteEmails: (ids: string[]) => Promise<void>;
+  sendEmail: (data: { to: string; subject: string; body: string; cc?: string; bcc?: string }) => Promise<void>;
+  sendReply: (emailId: string, text: string) => Promise<void>;
   openCompose: (initial?: ComposeData) => void;
   closeCompose: () => void;
   filteredEmails: Email[];
@@ -50,10 +61,10 @@ const EmailContext = createContext<EmailContextType | undefined>(undefined);
 export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
 
-  const userEmail = user?.email || 'xyz@gmail.com';
+  const userEmail = user?.email || 'user@gmail.com';
   const userName = user?.name || 'User';
 
-  const [emails, setEmails] = useState<Email[]>(() => generateUserEmails(userEmail, userName));
+  const [emails, setEmails] = useState<Email[]>([]);
   const [activeFolder, setActiveFolderState] = useState<FolderId>('inbox');
   const [activeLabel, setActiveLabelState] = useState<EmailLabel | null>(null);
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
@@ -62,13 +73,57 @@ export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [filterTab, setFilterTab] = useState<EmailFilterTab>('all');
   const [isComposeOpen, setIsComposeOpen] = useState<boolean>(false);
   const [composeData, setComposeData] = useState<ComposeData | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isError, setIsError] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [retryCounter, setRetryCounter] = useState<number>(0);
 
-  // Sync emails whenever authenticated user changes
+  // Load emails from the backend whenever the user is authenticated
   useEffect(() => {
-    const initial = generateUserEmails(userEmail, userName);
-    setEmails(initial);
-    setSelectedEmailId(initial[0]?.id || null);
-  }, [userEmail, userName]);
+    let cancelled = false;
+
+    async function loadEmails() {
+      setIsLoading(true);
+      setIsError(false);
+      setErrorMessage(null);
+      try {
+        const data = await getAllEmails();
+        if (!cancelled) {
+          setEmails(data);
+          // Select the first inbox email by default
+          const firstInbox = data.find(e => e.folder === 'inbox');
+          setSelectedEmailId(firstInbox?.id || data[0]?.id || null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setIsError(true);
+          setErrorMessage(
+            err instanceof Error
+              ? err.message
+              : 'Unable to load emails. Please check if the backend is running.'
+          );
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+
+    if (user) {
+      loadEmails();
+    } else {
+      // Clear mailbox state when the authenticated user changes.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setEmails([]);
+      setIsLoading(false);
+    }
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userEmail, userName, retryCounter]);
+
+  const retryLoad = useCallback(() => {
+    setRetryCounter(prev => prev + 1);
+  }, []);
 
   const setActiveFolder = useCallback((folder: FolderId) => {
     setActiveFolderState(folder);
@@ -107,11 +162,13 @@ export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     ));
   }, []);
 
-  const markAsRead = useCallback((ids: string[]) => {
-    setEmails(prev => prev.map(email => 
-      ids.includes(email.id) ? { ...email, isRead: true } : email
+  const markAsRead = useCallback(async (ids: string[]) => {
+    const unreadIds = emails.filter(email => ids.includes(email.id) && !email.isRead).map(email => email.id);
+    await Promise.all(unreadIds.map(id => markEmailAsRead(id)));
+    setEmails(prev => prev.map(email =>
+      unreadIds.includes(email.id) ? { ...email, isRead: true } : email
     ));
-  }, []);
+  }, [emails]);
 
   const markAsUnread = useCallback((ids: string[]) => {
     setEmails(prev => prev.map(email => 
@@ -126,74 +183,26 @@ export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setSelectedEmailIds(prev => prev.filter(id => !ids.includes(id)));
   }, []);
 
-  const deleteEmails = useCallback((ids: string[]) => {
-    setEmails(prev => prev.map(email => 
-      ids.includes(email.id) ? { ...email, folder: 'trash' } : email
-    ));
+  const deleteEmails = useCallback(async (ids: string[]) => {
+    await Promise.all(ids.map(id => deleteEmail(id)));
+    setEmails(prev => prev.filter(email => !ids.includes(email.id)));
     setSelectedEmailIds(prev => prev.filter(id => !ids.includes(id)));
+    setSelectedEmailId(current => ids.includes(current || '') ? null : current);
   }, []);
 
-  const sendEmail = useCallback((data: { to: string; subject: string; body: string; cc?: string; bcc?: string }) => {
-    const newEmail: Email = {
-      id: `email-${Date.now()}`,
-      sender: {
-        name: userName,
-        email: userEmail,
-      },
-      recipients: [data.to],
-      subject: data.subject || '(no subject)',
-      snippet: data.body.slice(0, 100) || 'Sent message',
-      timestamp: 'Just now',
-      fullDate: 'Today at ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isRead: true,
-      isStarred: false,
-      isImportant: false,
-      folder: 'sent',
-      labels: ['Work'],
-      thread: [
-        {
-          id: `msg-${Date.now()}`,
-          sender: {
-            name: userName,
-            email: userEmail,
-          },
-          recipients: [data.to],
-          cc: data.cc ? [data.cc] : undefined,
-          bcc: data.bcc ? [data.bcc] : undefined,
-          timestamp: 'Just now',
-          fullDate: 'Today, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          body: data.body,
-        },
-      ],
-    };
-
-    setEmails(prev => [newEmail, ...prev]);
+  const sendEmail = useCallback(async (data: { to: string; subject: string; body: string; cc?: string; bcc?: string }) => {
+    await sendEmailRequest(data);
+    const refreshedEmails = await getAllEmails();
+    setEmails(refreshedEmails);
     setIsComposeOpen(false);
     setComposeData(null);
-  }, [userEmail, userName]);
+  }, []);
 
-  const sendReply = useCallback((emailId: string, text: string) => {
-    setEmails(prev => prev.map(email => {
-      if (email.id !== emailId) return email;
-      const newMsg = {
-        id: `msg-reply-${Date.now()}`,
-        sender: {
-          name: userName,
-          email: userEmail,
-        },
-        recipients: [email.sender.email],
-        timestamp: 'Just now',
-        fullDate: 'Today, ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        body: text,
-      };
-      return {
-        ...email,
-        thread: [...email.thread, newMsg],
-        snippet: text.slice(0, 80),
-        timestamp: 'Just now',
-      };
-    }));
-  }, [userEmail, userName]);
+  const sendReply = useCallback(async (emailId: string, text: string) => {
+    await sendReplyRequest(emailId, text);
+    const refreshedEmails = await getAllEmails();
+    setEmails(refreshedEmails);
+  }, []);
 
   const openCompose = useCallback((initial?: ComposeData) => {
     setComposeData(initial || null);
@@ -279,6 +288,10 @@ export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         filterTab,
         isComposeOpen,
         composeData,
+        isLoading,
+        isError,
+        errorMessage,
+        retryLoad,
         setActiveFolder,
         setActiveLabel,
         setSelectedEmailId,

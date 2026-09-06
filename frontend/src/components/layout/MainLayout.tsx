@@ -7,11 +7,9 @@ import { EmailList } from '../email/EmailList';
 import { EmailDetail } from '../email/EmailDetail';
 import { AssistantPanel } from '../ai/AssistantPanel';
 import { ComposeEmail } from '../email/ComposeEmail';
-import { useEmail } from '../../context/EmailContext';
 import { useAICopilot } from '../../context/AICopilotContext';
 
 export const MainLayout: React.FC = () => {
-  const { selectedEmailId, setSelectedEmailId } = useEmail();
   const { isOpen: isAIOpen, setIsOpen: setIsAIOpen } = useAICopilot();
 
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);

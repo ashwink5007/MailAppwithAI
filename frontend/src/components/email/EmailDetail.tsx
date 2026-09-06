@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable @next/next/no-img-element */
+
 import React, { useState } from 'react';
 import { 
   ArrowLeft, 
@@ -43,6 +45,7 @@ export const EmailDetail: React.FC<EmailDetailProps> = ({ onBackMobile }) => {
 
   const [replyText, setReplyText] = useState('');
   const [isReplyOpen, setIsReplyOpen] = useState(false);
+  const [isSendingReply, setIsSendingReply] = useState(false);
 
   if (!selectedEmail) {
     return (
@@ -58,12 +61,19 @@ export const EmailDetail: React.FC<EmailDetailProps> = ({ onBackMobile }) => {
     );
   }
 
-  const handleSendReply = (e: React.FormEvent) => {
+  const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!replyText.trim()) return;
-    sendReply(selectedEmail.id, replyText);
-    setReplyText('');
-    setIsReplyOpen(false);
+    if (!replyText.trim() || isSendingReply) return;
+    setIsSendingReply(true);
+    try {
+      await sendReply(selectedEmail.id, replyText);
+      setReplyText('');
+      setIsReplyOpen(false);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to send reply.');
+    } finally {
+      setIsSendingReply(false);
+    }
   };
 
   return (
@@ -348,11 +358,11 @@ export const EmailDetail: React.FC<EmailDetailProps> = ({ onBackMobile }) => {
                 </button>
                 <button
                   type="submit"
-                  disabled={!replyText.trim()}
+                  disabled={!replyText.trim() || isSendingReply}
                   className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  <span>Send</span>
+                  <span>{isSendingReply ? 'Sending...' : 'Send'}</span>
                 </button>
               </div>
             </div>
