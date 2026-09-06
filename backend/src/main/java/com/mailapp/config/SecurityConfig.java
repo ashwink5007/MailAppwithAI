@@ -14,7 +14,6 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 
-import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -25,7 +24,7 @@ import java.util.Map;
  * - OAuth2 login redirects browser to Google consent screen.
  * - On success, browser is sent back to the Next.js frontend.
  * - API endpoints (e.g., /api/emails) return 401 JSON (not 302 redirect)
- *   so the frontend can handle unauthenticated state gracefully.
+ * so the frontend can handle unauthenticated state gracefully.
  * - /api/health and /api/user/me are public (used to check auth status).
  */
 @Configuration
@@ -38,38 +37,35 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            // Apply CORS config from WebConfig
-            .cors(cors -> cors.configure(http))
+                // Apply CORS config from WebConfig
+                .cors(cors -> cors.configure(http))
 
-            // CSRF is disabled — we rely on session cookies + CORS allowlist
-            .csrf(csrf -> csrf.disable())
+                // CSRF is disabled — we rely on session cookies + CORS allowlist
+                .csrf(csrf -> csrf.disable())
 
-            .authorizeHttpRequests(authz -> authz
-                // Public endpoints — health check and user status
-                .requestMatchers("/api/health", "/api/user/me", "/api/users/me").permitAll()
-                // All other /api/** require OAuth2 login
-                .anyRequest().authenticated()
-            )
+                .authorizeHttpRequests(authz -> authz
+                        // Public endpoints — health check and user status
+                        .requestMatchers("/api/health", "/api/user/me", "/api/users/me").permitAll()
+                        // All other /api/** require OAuth2 login
+                        .anyRequest().authenticated())
 
-            // When an unauthenticated request hits a protected /api/** endpoint,
-            // return 401 JSON instead of redirecting to Google login.
-            // This allows the frontend to handle the state (e.g., show login page).
-            .exceptionHandling(ex -> ex
-                .authenticationEntryPoint(apiAuthenticationEntryPoint())
-            )
+                // When an unauthenticated request hits a protected /api/** endpoint,
+                // return 401 JSON instead of redirecting to Google login.
+                // This allows the frontend to handle the state (e.g., show login page).
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(apiAuthenticationEntryPoint()))
 
-            .oauth2Login(oauth2 -> oauth2
-                // After successful Google login, redirect back to the Next.js app.
-                // The ?login=success param lets the frontend know to re-check the session.
-                .defaultSuccessUrl(frontendUrl + "/?login=success", true)
-            )
+                .oauth2Login(oauth2 -> oauth2
+                        // After successful Google login, redirect back to the Next.js app.
+                        // The ?login=success param lets the frontend know to re-check the session.
+                        .defaultSuccessUrl(frontendUrl + "/?login=success", true))
 
-            // Spring Security's built-in logout endpoint: GET /logout
-            .logout(logout -> logout
-                .logoutSuccessUrl(frontendUrl + "/?logout=success")
-                .invalidateHttpSession(true)
-                .deleteCookies("JSESSIONID")
-            );
+                // Spring Security's built-in logout endpoint: POST /logout
+                // Note: The frontend sends POST requests for logout (Spring Security 6+ default)
+                .logout(logout -> logout
+                        .logoutSuccessUrl(frontendUrl + "/?logout=success")
+                        .invalidateHttpSession(true)
+                        .deleteCookies("JSESSIONID"));
 
         return http.build();
     }
