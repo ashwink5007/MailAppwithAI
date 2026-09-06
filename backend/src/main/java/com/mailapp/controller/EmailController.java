@@ -2,8 +2,11 @@ package com.mailapp.controller;
 
 import com.mailapp.dto.ApiResponse;
 import com.mailapp.dto.EmailDto;
+import com.mailapp.dto.ReplyEmailRequest;
+import com.mailapp.dto.SendEmailRequest;
 import com.mailapp.service.EmailService;
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,11 +18,8 @@ import java.util.List;
  * Thin controller: no business logic here.
  * All logic is delegated to EmailService.
  *
- * Future endpoints (to be implemented when needed):
- *   POST /api/emails          - send email
- *   PATCH /api/emails/{id}    - update (star, read, label)
- *   DELETE /api/emails/{id}   - trash email
- *   GET /api/emails?q=search  - search emails
+ * Write endpoints delegate to the authenticated Gmail service and only report
+ * success after Gmail accepts the requested operation.
  */
 @RestController
 @RequestMapping("/api/emails")
@@ -76,5 +76,31 @@ public class EmailController {
         return ResponseEntity.ok(
                 ApiResponse.ok("Email retrieved successfully", email)
         );
+    }
+
+    @PostMapping("/send")
+    public ResponseEntity<ApiResponse<String>> sendEmail(@Valid @RequestBody SendEmailRequest request) {
+        String messageId = emailService.sendEmail(request);
+        return ResponseEntity.ok(ApiResponse.ok("Email sent successfully", messageId));
+    }
+
+    @PatchMapping("/{id}/read")
+    public ResponseEntity<ApiResponse<Void>> markAsRead(@PathVariable String id) {
+        emailService.markAsRead(id);
+        return ResponseEntity.ok(ApiResponse.ok("Email marked as read", null));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> moveToTrash(@PathVariable String id) {
+        emailService.moveToTrash(id);
+        return ResponseEntity.ok(ApiResponse.ok("Email moved to trash", null));
+    }
+
+    @PostMapping("/{id}/reply")
+    public ResponseEntity<ApiResponse<String>> sendReply(
+            @PathVariable String id,
+            @Valid @RequestBody ReplyEmailRequest request) {
+        String messageId = emailService.sendReply(id, request);
+        return ResponseEntity.ok(ApiResponse.ok("Reply sent successfully", messageId));
     }
 }

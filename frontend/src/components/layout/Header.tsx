@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable @next/next/no-img-element */
+
 import React, { useState } from 'react';
 import { 
   Search, 
@@ -10,8 +12,7 @@ import {
   X, 
   SlidersHorizontal,
   ChevronDown,
-  LogOut,
-  ShieldCheck
+  LogOut
 } from 'lucide-react';
 import { useEmail } from '../../context/EmailContext';
 import { useAICopilot } from '../../context/AICopilotContext';
@@ -139,7 +140,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileSidebar }) => {
                 </div>
                 <div className="py-2.5">
                   <p className="text-slate-800 font-semibold">AI Copilot summary ready</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Summary for Elena Rostova's thread generated</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Summary for Elena Rostova&apos;s thread generated</p>
                   <span className="text-[10px] text-blue-600 mt-1 inline-block font-medium">1h ago</span>
                 </div>
               </div>

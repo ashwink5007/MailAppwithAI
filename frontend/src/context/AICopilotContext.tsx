@@ -79,7 +79,6 @@ export const AICopilotProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setFilterTab,
     archiveEmails,
     setActiveFolder,
-    setActiveLabel,
     openCompose,
   } = useEmail();
 
