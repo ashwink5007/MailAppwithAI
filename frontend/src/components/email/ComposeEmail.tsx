@@ -14,8 +14,7 @@ import {
   Italic, 
   Underline, 
   List, 
-  Link2, 
-  Check
+  Link2
 } from 'lucide-react';
 import { useEmail } from '../../context/EmailContext';
 import { useAuth } from '../../context/AuthContext';
@@ -34,10 +33,12 @@ export const ComposeEmail: React.FC = () => {
   const [isMinimized, setIsMinimized] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<string[]>([]);
-  const [isDraftSaved, setIsDraftSaved] = useState(false);
+  const [isSending, setIsSending] = useState(false);
 
+  // Compose data is supplied by the context when opening a forwarded/replied message.
   useEffect(() => {
     if (composeData) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (composeData.to) setTo(composeData.to);
       if (composeData.subject) setSubject(composeData.subject);
       if (composeData.body) setBody(composeData.body);
@@ -46,27 +47,35 @@ export const ComposeEmail: React.FC = () => {
 
   if (!isComposeOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSending) return;
     if (!to.trim()) {
       alert('Please specify at least one recipient.');
       return;
     }
 
-    sendEmail({
-      to,
-      cc: showCc ? cc : undefined,
-      bcc: showBcc ? bcc : undefined,
-      subject,
-      body,
-    });
+    setIsSending(true);
+    try {
+      await sendEmail({
+        to,
+        cc: showCc ? cc : undefined,
+        bcc: showBcc ? bcc : undefined,
+        subject,
+        body,
+      });
 
-    setTo('');
-    setCc('');
-    setBcc('');
-    setSubject('');
-    setBody('');
-    setAttachedFiles([]);
+      setTo('');
+      setCc('');
+      setBcc('');
+      setSubject('');
+      setBody('');
+      setAttachedFiles([]);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Failed to send email.');
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleAttachDummy = () => {
@@ -95,11 +104,6 @@ export const ComposeEmail: React.FC = () => {
       <div className="h-12 bg-slate-50 px-4 flex items-center justify-between border-b border-slate-200 select-none cursor-pointer">
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-slate-800">New Message</span>
-          {isDraftSaved && (
-            <span className="text-[10px] text-emerald-600 flex items-center gap-1 font-medium">
-              <Check className="w-3 h-3" /> Saved
-            </span>
-          )}
         </div>
 
         <div className="flex items-center gap-1 text-slate-500">
@@ -136,7 +140,7 @@ export const ComposeEmail: React.FC = () => {
           <div className="flex items-center px-4 py-2 border-b border-slate-100 text-xs bg-slate-50/50">
             <span className="text-slate-400 w-12 font-medium">From:</span>
             <span className="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200">
-              {user?.email || 'xyz@gmail.com'}
+              {user?.email || 'user@gmail.com'}
             </span>
           </div>
 
@@ -309,10 +313,11 @@ export const ComposeEmail: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 type="submit"
+                disabled={isSending}
                 className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs shadow-md shadow-blue-500/25 ring-1 ring-blue-400 transition"
               >
                 <Send className="w-3.5 h-3.5" />
-                <span>Send</span>
+                <span>{isSending ? 'Sending...' : 'Send'}</span>
               </button>
 
               <button

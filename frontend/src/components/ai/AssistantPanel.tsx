@@ -26,7 +26,6 @@ export const AssistantPanel: React.FC = () => {
     status, 
     statusMessage, 
     messages, 
-    pendingAction, 
     confirmAction, 
     cancelAction, 
     clearChat 

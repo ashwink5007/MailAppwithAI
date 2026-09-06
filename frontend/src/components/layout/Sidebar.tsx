@@ -1,21 +1,20 @@
 'use client';
 
 import React from 'react';
-import { 
-  Inbox, 
-  Star, 
-  Send, 
-  FileText, 
-  AlertCircle, 
-  Trash2, 
-  ShieldAlert, 
-  Plus, 
-  Tag, 
-  HardDrive, 
-  Settings, 
+import {
+  Inbox,
+  Star,
+  Send,
+  FileText,
+  AlertCircle,
+  Trash2,
+  ShieldAlert,
+  Plus,
+  Tag,
+  HardDrive,
+  Settings,
   HelpCircle,
-  ChevronRight,
-  Mail
+  ChevronRight
 } from 'lucide-react';
 import { useEmail } from '../../context/EmailContext';
 import { useAuth } from '../../context/AuthContext';
@@ -52,13 +51,13 @@ const LABELS: { name: EmailLabel; color: string; bg: string }[] = [
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
-  const { 
-    activeFolder, 
-    setActiveFolder, 
-    activeLabel, 
-    setActiveLabel, 
-    folderCounts, 
-    openCompose 
+  const {
+    activeFolder,
+    setActiveFolder,
+    activeLabel,
+    setActiveLabel,
+    folderCounts,
+    openCompose
   } = useEmail();
 
   const { user } = useAuth();
@@ -89,7 +88,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
             <div className="flex items-center gap-1">
               <span className="text-xs font-bold text-slate-900 truncate">{user?.name || 'Gmail User'}</span>
             </div>
-            <p className="text-[10px] text-blue-600 font-bold truncate">{user?.email || 'xyz@gmail.com'}</p>
+            <p className="text-[10px] text-blue-600 font-bold truncate">{user?.email || ''}</p>
           </div>
         </div>
       </div>
@@ -122,11 +121,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
             <button
               key={folder.id}
               onClick={() => handleFolderClick(folder.id)}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
-                isActive
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all ${isActive
                   ? 'bg-blue-100 text-blue-700 shadow-xs'
                   : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'
-              }`}
+                }`}
             >
               <div className="flex items-center gap-3">
                 <Icon className={`w-4 h-4 ${isActive ? 'text-blue-600' : 'text-slate-400'}`} />
@@ -134,11 +132,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
               </div>
               {count > 0 && (
                 <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    isActive
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isActive
                       ? 'bg-blue-600 text-white'
                       : 'bg-slate-200 text-slate-700'
-                  }`}
+                    }`}
                 >
                   {count}
                 </span>
@@ -161,11 +158,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
             <button
               key={label.name}
               onClick={() => handleLabelClick(label.name)}
-              className={`w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
-                isSelected
+              className={`w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${isSelected
                   ? 'bg-white text-blue-700 shadow-sm border border-slate-200 font-semibold'
                   : 'text-slate-600 hover:bg-slate-200/50 hover:text-slate-900'
-              }`}
+                }`}
             >
               <div className="flex items-center gap-2.5">
                 <span className={`w-2.5 h-2.5 rounded-full ${label.bg}`} />
