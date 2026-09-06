@@ -1,17 +1,19 @@
 package com.mailapp.service;
 
 import com.mailapp.dto.EmailDto;
+import com.mailapp.dto.ReplyEmailRequest;
+import com.mailapp.dto.SendEmailRequest;
 
 import java.util.List;
 
 /**
  * Email service contract.
  *
- * Current implementation: MockEmailDataProvider
- * Future implementation: GmailService
+ * Primary implementation: GmailApiServiceImpl
  *
  * EmailController depends ONLY on this interface — not on any concrete provider.
- * Swapping providers requires zero controller changes.
+ * The mock implementation remains available for isolated development use,
+ * but real API requests are handled by the Gmail implementation.
  */
 public interface EmailService {
 
@@ -36,4 +38,12 @@ public interface EmailService {
      * @throws com.mailapp.exception.ResourceNotFoundException if not found
      */
     EmailDto getEmailById(String id);
+
+    String sendEmail(SendEmailRequest request);
+
+    String sendReply(String id, ReplyEmailRequest request);
+
+    void markAsRead(String id);
+
+    void moveToTrash(String id);
 }

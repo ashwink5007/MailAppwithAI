@@ -8,6 +8,9 @@ import com.google.api.services.gmail.model.ListMessagesResponse;
 import com.google.api.services.gmail.model.Message;
 import com.google.api.services.gmail.model.MessagePart;
 import com.google.api.services.gmail.model.MessagePartHeader;
+import com.google.api.services.gmail.model.ModifyMessageRequest;
+import com.mailapp.dto.ReplyEmailRequest;
+import com.mailapp.dto.SendEmailRequest;
 import com.mailapp.dto.EmailDto;
 import com.mailapp.dto.EmailDto.EmailSenderDto;
 import com.mailapp.dto.EmailDto.ThreadMessageDto;
@@ -21,6 +24,13 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
+
+import jakarta.mail.Message.RecipientType;
+import jakarta.mail.Session;
+import jakarta.mail.internet.InternetAddress;
+import jakarta.mail.internet.MimeMessage;
+import java.io.ByteArrayOutputStream;
+import java.util.Properties;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -44,7 +54,8 @@ import java.util.Map;
  *   - Decode the selected part from Base64url encoding.
  *   - Extract standard headers (From, To, Cc, Bcc, Subject, Date).
  *
- * Fallback: if no valid OAuth2 session is found, delegates to the mock provider.
+ * Missing OAuth sessions and Gmail failures are returned as API errors rather
+ * than being replaced with mock data.
  */
 @Service
 @Primary
@@ -54,13 +65,9 @@ public class GmailApiServiceImpl implements EmailService {
     private static final String APPLICATION_NAME = "AiMail";
 
     private final OAuth2AuthorizedClientService authorizedClientService;
-    private final EmailService mockFallbackService;
-
     public GmailApiServiceImpl(
-            OAuth2AuthorizedClientService authorizedClientService,
-            EmailServiceImpl mockFallbackService) {
+            OAuth2AuthorizedClientService authorizedClientService) {
         this.authorizedClientService = authorizedClientService;
-        this.mockFallbackService = mockFallbackService;
     }
 
     // ── Gmail client ────────────────────────────────────────────────────────
@@ -110,14 +117,149 @@ public class GmailApiServiceImpl implements EmailService {
         return "me";
     }
 
+    @Override
+    public String sendEmail(SendEmailRequest request) {
+        Gmail service = requireGmailService();
+        try {
+            MimeMessage mimeMessage = createMimeMessage(
+                    request.to(), request.cc(), request.bcc(), request.subject(), request.body(), null, null);
+            String messageId = sendMimeMessage(service, mimeMessage, null);
+            System.out.println("Gmail message sent successfully. Message ID: " + messageId);
+            return messageId;
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to send email through Gmail", e);
+        }
+    }
+
+    @Override
+    public String sendReply(String id, ReplyEmailRequest request) {
+        Gmail service = requireGmailService();
+        try {
+            Message original = service.users().messages().get("me", id).setFormat("full").execute();
+            Map<String, String> headers = extractHeaders(original);
+            String sender = headers.get("From");
+            if (sender == null || sender.isBlank()) {
+                throw new IllegalArgumentException("The original email has no sender address");
+            }
+            String references = headers.get("References");
+            String messageIdHeader = headers.get("Message-ID");
+            String combinedReferences = references == null || references.isBlank()
+                    ? messageIdHeader
+                    : (messageIdHeader == null || messageIdHeader.isBlank()
+                        ? references
+                        : references + " " + messageIdHeader);
+            MimeMessage reply = createMimeMessage(
+                    extractAddress(sender), null, null,
+                    replySubject(headers.get("Subject")), request.body(),
+                    messageIdHeader, combinedReferences);
+            String sentMessageId = sendMimeMessage(service, reply, original.getThreadId());
+            System.out.println("Reply sent successfully. Original message ID: " + id
+                    + ", recipient: " + extractAddress(sender));
+            return sentMessageId;
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to send reply through Gmail", e);
+        }
+    }
+
+    @Override
+    public void markAsRead(String id) {
+        Gmail service = requireGmailService();
+        try {
+            Message message = service.users().messages().get("me", id).setFormat("minimal").execute();
+            List<String> labels = message.getLabelIds() == null ? List.of() : message.getLabelIds();
+            if (labels.contains("UNREAD")) {
+                System.out.println("Marking Gmail message as read. Message ID: " + id);
+                service.users().messages().modify("me", id,
+                        new ModifyMessageRequest().setRemoveLabelIds(List.of("UNREAD"))).execute();
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to mark email as read through Gmail", e);
+        }
+    }
+
+    @Override
+    public void moveToTrash(String id) {
+        Gmail service = requireGmailService();
+        try {
+            System.out.println("Moving Gmail message to trash. Message ID: " + id);
+            service.users().messages().trash("me", id).execute();
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to move email to trash through Gmail", e);
+        }
+    }
+
+    private Gmail requireGmailService() {
+        Gmail service = getGmailService();
+        if (service == null) {
+            throw new IllegalStateException("No authenticated Gmail session is available");
+        }
+        return service;
+    }
+
+    private MimeMessage createMimeMessage(
+            String to,
+            String cc,
+            String bcc,
+            String subject,
+            String body,
+            String inReplyTo,
+            String references) throws Exception {
+        MimeMessage message = new MimeMessage(Session.getInstance(new Properties()));
+        message.setRecipient(RecipientType.TO, new InternetAddress(to));
+        addRecipients(message, RecipientType.CC, cc);
+        addRecipients(message, RecipientType.BCC, bcc);
+        message.setSubject(subject == null ? "" : subject, StandardCharsets.UTF_8.name());
+        message.setText(body, StandardCharsets.UTF_8.name());
+        if (inReplyTo != null && !inReplyTo.isBlank()) message.setHeader("In-Reply-To", inReplyTo);
+        if (references != null && !references.isBlank()) message.setHeader("References", references);
+        return message;
+    }
+
+    private void addRecipients(MimeMessage message, RecipientType type, String addresses) throws Exception {
+        if (addresses != null && !addresses.isBlank()) {
+            message.setRecipients(type, InternetAddress.parse(addresses));
+        }
+    }
+
+    private String sendMimeMessage(Gmail service, MimeMessage mimeMessage, String threadId) throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        mimeMessage.writeTo(output);
+        String encoded = Base64.getUrlEncoder().withoutPadding().encodeToString(output.toByteArray());
+        Message gmailMessage = new Message().setRaw(encoded);
+        if (threadId != null && !threadId.isBlank()) gmailMessage.setThreadId(threadId);
+        System.out.println("Calling Gmail API messages.send");
+        Message response = service.users().messages().send("me", gmailMessage).execute();
+        if (response == null || response.getId() == null || response.getId().isBlank()) {
+            throw new IllegalStateException("Gmail did not return a message ID");
+        }
+        return response.getId();
+    }
+
+    private String extractAddress(String header) {
+        try {
+            InternetAddress[] addresses = InternetAddress.parse(header);
+            if (addresses.length == 0 || addresses[0].getAddress() == null) {
+                throw new IllegalArgumentException("Invalid original sender address");
+            }
+            return addresses[0].getAddress();
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid original sender address", e);
+        }
+    }
+
+    private String replySubject(String subject) {
+        if (subject == null || subject.isBlank()) return "Re:";
+        return subject.regionMatches(true, 0, "Re:", 0, 3) ? subject : "Re: " + subject;
+    }
+
     // ── EmailService implementation ─────────────────────────────────────────
 
     @Override
     public List<EmailDto> getAllEmails() {
         Gmail service = getGmailService();
-        if (service == null) {
-            return mockFallbackService.getAllEmails();
-        }
+        if (service == null) throw new IllegalStateException("No authenticated Gmail session is available");
         try {
             // Fetch across all labels — inbox + sent combined gives "All Mail" view
             List<EmailDto> inbox = fetchMessages(service, "INBOX", MAX_RESULTS / 2);
@@ -127,45 +269,36 @@ public class GmailApiServiceImpl implements EmailService {
             all.addAll(sent);
             return all;
         } catch (Exception e) {
-            e.printStackTrace();
-            return mockFallbackService.getAllEmails();
+            throw new IllegalStateException("Failed to load emails from Gmail", e);
         }
     }
 
     @Override
     public List<EmailDto> getInboxEmails() {
         Gmail service = getGmailService();
-        if (service == null) {
-            return mockFallbackService.getInboxEmails();
-        }
+        if (service == null) throw new IllegalStateException("No authenticated Gmail session is available");
         try {
             return fetchMessages(service, "INBOX", MAX_RESULTS);
         } catch (Exception e) {
-            e.printStackTrace();
-            return mockFallbackService.getInboxEmails();
+            throw new IllegalStateException("Failed to load inbox emails from Gmail", e);
         }
     }
 
     @Override
     public List<EmailDto> getSentEmails() {
         Gmail service = getGmailService();
-        if (service == null) {
-            return mockFallbackService.getSentEmails();
-        }
+        if (service == null) throw new IllegalStateException("No authenticated Gmail session is available");
         try {
             return fetchMessages(service, "SENT", MAX_RESULTS);
         } catch (Exception e) {
-            e.printStackTrace();
-            return mockFallbackService.getSentEmails();
+            throw new IllegalStateException("Failed to load sent emails from Gmail", e);
         }
     }
 
     @Override
     public EmailDto getEmailById(String id) {
         Gmail service = getGmailService();
-        if (service == null) {
-            return mockFallbackService.getEmailById(id);
-        }
+        if (service == null) throw new IllegalStateException("No authenticated Gmail session is available");
         try {
             Message message = service.users().messages()
                     .get("me", id)
@@ -178,8 +311,7 @@ public class GmailApiServiceImpl implements EmailService {
         } catch (ResourceNotFoundException e) {
             throw e;
         } catch (Exception e) {
-            e.printStackTrace();
-            throw new ResourceNotFoundException("Email", id);
+            throw new IllegalStateException("Failed to load email from Gmail", e);
         }
     }
 

@@ -1,6 +1,8 @@
 package com.mailapp.service.impl;
 
 import com.mailapp.dto.EmailDto;
+import com.mailapp.dto.ReplyEmailRequest;
+import com.mailapp.dto.SendEmailRequest;
 import com.mailapp.exception.ResourceNotFoundException;
 import com.mailapp.provider.MockEmailDataProvider;
 import com.mailapp.service.EmailService;
@@ -47,5 +49,25 @@ public class EmailServiceImpl implements EmailService {
             throw new ResourceNotFoundException("Email", id);
         }
         return email;
+    }
+
+    @Override
+    public String sendEmail(SendEmailRequest request) {
+        throw new UnsupportedOperationException("Gmail is required to send email");
+    }
+
+    @Override
+    public String sendReply(String id, ReplyEmailRequest request) {
+        throw new UnsupportedOperationException("Gmail is required to send email");
+    }
+
+    @Override
+    public void markAsRead(String id) {
+        throw new UnsupportedOperationException("Gmail is required to modify email");
+    }
+
+    @Override
+    public void moveToTrash(String id) {
+        throw new UnsupportedOperationException("Gmail is required to modify email");
     }
 }
