@@ -5,7 +5,9 @@
     "buildCommand": "chmod +x mvnw && ./mvnw clean package -DskipTests -B"
   },
   "deploy": {
-    "startCommand": "java -jar target/backend-0.0.1-SNAPSHOT.jar",
+    "startCommand": "java -Xms256m -Xmx512m -jar target/backend-0.0.1-SNAPSHOT.jar",
+    "healthcheckPath": "/api/health",
+    "healthcheckTimeout": 10,
     "restartPolicyType": "on_failure",
     "restartPolicyMaxRetries": 5
   }

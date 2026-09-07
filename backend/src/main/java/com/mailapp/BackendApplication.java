@@ -56,23 +56,34 @@ public class BackendApplication implements CommandLineRunner {
 
         // Critical checks
         if (rawDbUrl == null || rawDbUrl.isBlank()) {
-            log.error("CRITICAL: DATABASE_URL env var is NOT SET on this platform!");
-            log.error("The app is using the default: jdbc:postgresql://localhost:5432/postgres");
-            log.error("Set DATABASE_URL, DATABASE_USERNAME, DATABASE_PASSWORD in Railway dashboard.");
-            log.error("For Supabase: jdbc:postgresql://aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=require");
+            log.error("╔══════════════════════════════════════════════════════════════╗");
+            log.error("║  CRITICAL: DATABASE_URL env var is NOT SET                  ║");
+            log.error("║                                                            ║");
+            log.error("║  The app will crash-loop without a database.               ║");
+            log.error("║                                                            ║");
+            log.error("║  TO FIX:                                                   ║");
+            log.error("║  1. Go to Railway dashboard → your service                 ║");
+            log.error("║  2. Click 'Variables' tab                                  ║");
+            log.error("║  3. Add these env vars:                                    ║");
+            log.error("║     DATABASE_URL=jdbc:postgresql://...                     ║");
+            log.error("║     DATABASE_USERNAME=postgres                             ║");
+            log.error("║     DATABASE_PASSWORD=your-password                        ║");
+            log.error("║                                                            ║");
+            log.error("║  Or: Add a PostgreSQL database from Railway marketplace     ║");
+            log.error("║  (New → Database → PostgreSQL) and Railway will set them.  ║");
+            log.error("╚══════════════════════════════════════════════════════════════╝");
         } else if (rawDbUrl.contains("localhost")) {
-            log.error("CRITICAL: DATABASE_URL points to localhost — this will NOT work on Railway/production!");
-            log.error("Set DATABASE_URL to your Supabase connection string in Railway dashboard.");
+            log.error("CRITICAL: DATABASE_URL points to localhost — will NOT work on Railway!");
         }
         if (rawGoogleId == null || rawGoogleId.isBlank()) {
-            log.error("CRITICAL: GOOGLE_CLIENT_ID env var is NOT SET! OAuth will fail with 'invalid_client'.");
+            log.error("CRITICAL: GOOGLE_CLIENT_ID not set — OAuth will fail with 'invalid_client'.");
         }
         if (rawGoogleSecret == null || rawGoogleSecret.isBlank()) {
-            log.error("CRITICAL: GOOGLE_CLIENT_SECRET env var is NOT SET! OAuth will fail with 'invalid_client'.");
+            log.error("CRITICAL: GOOGLE_CLIENT_SECRET not set — OAuth will fail with 'invalid_client'.");
         }
         if (rawFrontendUrl == null || rawFrontendUrl.isBlank()) {
-            log.error("CRITICAL: FRONTEND_URL env var is NOT SET! Post-login redirect will go to localhost.");
-            log.error("Set FRONTEND_URL=https://nebulamail.vercel.app in Railway dashboard.");
+            log.error("CRITICAL: FRONTEND_URL not set — post-login redirect will go to localhost.");
+            log.error("Set FRONTEND_URL=https://nebulamail.vercel.app");
         }
         if (clientId != null && clientId.endsWith(".apps.googleusercontent.com")) {
             log.info("  Google Client ID format: looks valid");

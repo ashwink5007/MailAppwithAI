@@ -1,17 +1,22 @@
 package com.mailapp.controller;
 
 import com.mailapp.dto.ApiResponse;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Health check endpoint.
- * Used by the frontend to verify backend connectivity.
+ * Health check endpoints.
+ * /api/health      — lightweight, no DB check (for Railway healthcheck / uptime monitors)
+ * /api/health/ready — deep check including DB connectivity
  */
 @RestController
 @RequestMapping("/api")
@@ -20,19 +25,51 @@ public class HealthController {
     @Value("${spring.security.oauth2.client.registration.google.client-id:}")
     private String googleClientId;
 
-    @Value("${spring.security.oauth2.client.registration.google.client-secret:}")
-    private String googleClientSecret;
-
     @Value("${frontend.url:http://localhost:3000}")
     private String frontendUrl;
 
+    @Autowired(required = false)
+    private DataSource dataSource;
+
+    /**
+     * Lightweight health check — always returns 200 if the JVM is up.
+     * Used by Railway's healthcheck and uptime monitors.
+     */
     @GetMapping("/health")
     public ApiResponse<Map<String, String>> health() {
         return ApiResponse.ok("Backend is running", Map.of(
                 "status", "UP",
-                "service", "mailapp-backend",
-                "sprint", "3.1"
+                "service", "mailapp-backend"
         ));
+    }
+
+    /**
+     * Deep health check — verifies DB connectivity.
+     * Returns 503 if the database is unreachable.
+     */
+    @GetMapping("/health/ready")
+    public ApiResponse<Map<String, Object>> ready() {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("service", "mailapp-backend");
+
+        // Check database
+        if (dataSource == null) {
+            details.put("database", "NOT CONFIGURED (no DataSource bean)");
+            details.put("status", "DEGRADED");
+            return new ApiResponse<>(false, "Database not configured", details);
+        }
+
+        try (Connection conn = dataSource.getConnection()) {
+            DatabaseMetaData meta = conn.getMetaData();
+            details.put("database", meta.getDatabaseProductName() + " " + meta.getDatabaseProductVersion());
+            details.put("databaseUrl", meta.getURL());
+            details.put("status", "UP");
+            return ApiResponse.ok("All systems operational", details);
+        } catch (Exception e) {
+            details.put("database", "UNREACHABLE: " + e.getMessage());
+            details.put("status", "DOWN");
+            return new ApiResponse<>(false, "Database connection failed", details);
+        }
     }
 
     /**
@@ -41,21 +78,18 @@ public class HealthController {
      */
     @GetMapping("/debug/oauth-status")
     public Map<String, Object> oauthStatus() {
-        // Check raw env vars
         String rawDbUrl = System.getenv("DATABASE_URL");
         String rawFrontendUrl = System.getenv("FRONTEND_URL");
+        String rawGoogleId = System.getenv("GOOGLE_CLIENT_ID");
 
         Map<String, Object> status = new LinkedHashMap<>();
         status.put("clientIdResolved", googleClientId != null && !googleClientId.isBlank());
         status.put("clientIdLength", googleClientId != null ? googleClientId.length() : 0);
         status.put("clientIdFormatValid", googleClientId != null && googleClientId.endsWith(".apps.googleusercontent.com"));
-        status.put("clientSecretResolved", googleClientSecret != null && !googleClientSecret.isBlank());
-        status.put("clientSecretLength", googleClientSecret != null ? googleClientSecret.length() : 0);
         status.put("databaseUrlSet", rawDbUrl != null && !rawDbUrl.isBlank());
         status.put("databaseUrlPointsToLocalhost", rawDbUrl != null && rawDbUrl.contains("localhost"));
-        status.put("frontendUrl", rawFrontendUrl != null ? rawFrontendUrl : "NOT SET (using fallback)");
+        status.put("frontendUrl", rawFrontendUrl != null ? rawFrontendUrl : "NOT SET");
         status.put("redirectUri", "https://mailappwithai.up.railway.app/login/oauth2/code/google");
-        status.put("authorizationEndpoint", "https://mailappwithai.up.railway.app/oauth2/authorization/google");
         return status;
     }
 }
