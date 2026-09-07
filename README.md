@@ -1,64 +1,62 @@
-# MailAppwithAI — Intelligent Email Client with Integrated AI Copilot
+# NebulaMail — AI-Powered Mail Client
 
-Nebula web app for hiring task.
+NebulaMail is an AI-powered email web application that combines a modern mail client with an intelligent AI Copilot.
 
-AiMail is an AI-native, responsive email client built with Next.js 16 (Turbopack), React 19, TypeScript, and Tailwind CSS. It features autonomous AI workflows, an OAuth 2.0 authentication gateway, and a bright blue SaaS design system.
+Instead of treating AI as a simple chatbot, NebulaMail allows users to interact with their mailbox using natural language. The assistant can understand user intent and control the application UI — navigating views, searching emails, filtering messages, opening emails, composing messages, and preparing replies.
 
----
-
-## Key Features
-
-- **OAuth 2.0 Authentication Gateway**: Secure authentication with Google, Microsoft 365, GitHub OAuth 2.0, and Enterprise Single Sign-On (SSO).
-- **Responsive Workspace**:
-  - **Desktop**: 4-pane layout (Sidebar | Email List | Email Detail | AI Copilot).
-  - **Tablet**: Adaptive layout with collapsible drawers.
-  - **Mobile**: Native single-pane drill-down with touch navigation.
-- **Core Email Client**:
-  - Folders: Inbox, Starred, Sent, Drafts, Important, Spam, Trash.
-  - Custom category labels: Work, Personal, Urgent, Finance, Social, Promotions.
-  - Multi-selection with bulk actions (Mark Read/Unread, Archive, Delete).
-  - Full conversation thread reader with attachment previews.
-  - Docked / floating Compose window with rich formatting toolbar.
-- **Integrated AI Copilot**:
-  - Context-aware assistance recognizing the currently selected email or active folder.
-  - Multi-step status progression (**Thinking $\to$ Processing $\to$ Executing $\to$ Completed**).
-  - One-click smart workflows:
-    - *"Summarize this email"* (structured bullet-point takeaways).
-    - *"Draft a reply"* (tailored response with 1-click insertion into the reply box).
-    - *"Find unread emails from John"* (live filter application).
-    - *"Show emails that need my response"* (action item prioritization).
-    - *"Archive promotional emails"* (safe batch execution with confirmation dialog).
+> **Note about Google OAuth:** Google OAuth is currently available only to approved Google test users because the application is using a development/testing OAuth configuration. Users who are not registered as Google test users can access the application using the standard NebulaMail email/password login.
 
 ---
 
-## Tech Stack
+## Live Demo
 
-- **Framework**: Next.js 16 (App Router with Turbopack)
-- **Library**: React 19
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS v4
-- **Icons**: Lucide React
+**Frontend:**  
+https://mail-appwith-nd3cmyems-alagarashwins-projects.vercel.app
+
+**Backend API:**  
+https://mailappwithai.up.railway.app
+
+**Repository:**  
+https://github.com/ashwink5007/MailAppwithAI
 
 ---
 
-## Getting Started
+## Features
 
-### Prerequisites
+### Mail Client
 
-- Node.js 18.18+ or 20+
-- npm or pnpm
+- Gmail integration using Google OAuth 2.0
+- Inbox and Sent views
+- Email detail view
+- Compose and send emails
+- Reply to emails
+- Mark emails as read/unread
+- Star and organize emails
+- Search and filtering
+- Trash/delete operations
+- Gmail labels and folders
 
-### Installation
+### AI Copilot
 
-```bash
-# Navigate to the frontend directory
-cd frontend
+The AI Copilot is the core feature of NebulaMail.
 
-# Install dependencies
-npm install
+Users can interact with the mailbox using natural language instead of memorizing fixed commands.
 
-# Start the development server
-npm run dev
-```
+Examples:
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+```text
+Show me unread emails.
+
+Find emails about the project.
+
+Show emails from John.
+
+Open the latest email.
+
+Go to my sent mail.
+
+Compose a new email.
+
+Reply to this email.
+
+Show only unread emails from this week.
