@@ -17,6 +17,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -130,7 +131,7 @@ public class AuthController {
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getCurrentUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || auth.getPrincipal() == null) {
+        if (!isAuthenticated(auth)) {
             return ResponseEntity.ok(ApiResponse.error("Not authenticated"));
         }
 
@@ -147,7 +148,58 @@ public class AuthController {
             return ResponseEntity.ok(ApiResponse.ok("User retrieved successfully", data));
         }
 
+        if (principal instanceof OAuth2User oAuth2User) {
+            String email = oAuth2User.getAttribute("email");
+            if (email == null || email.isBlank()) {
+                return ResponseEntity.ok(ApiResponse.error("Not authenticated"));
+            }
+            String googleId = oAuth2User.getAttribute("sub");
+            if (googleId == null) {
+                googleId = oAuth2User.getName();
+            }
+            Map<String, Object> data = new LinkedHashMap<>();
+            userRepository.findByGoogleId(googleId)
+                    .or(() -> userRepository.findByEmail(email.toLowerCase()))
+                    .ifPresent(dbUser -> {
+                        data.put("id", dbUser.getId());
+                        data.put("email", dbUser.getEmail());
+                        data.put("displayName", dbUser.getName());
+                        data.put("profilePictureUrl", dbUser.getProfilePictureUrl());
+                        data.put("googleConnected", true);
+                        data.put("mailboxMode", "REAL_GMAIL");
+                    });
+            if (data.isEmpty()) {
+                data.put("email", email);
+                data.put("displayName", oAuth2User.getAttribute("name"));
+                data.put("profilePictureUrl", oAuth2User.getAttribute("picture"));
+                data.put("googleConnected", true);
+                data.put("mailboxMode", "REAL_GMAIL");
+            }
+            return ResponseEntity.ok(ApiResponse.ok("User retrieved successfully", data));
+        }
+
         return ResponseEntity.ok(ApiResponse.error("Not authenticated"));
+    }
+
+    /**
+     * Anonymous tokens ("anonymousUser") report isAuthenticated()=true, so they
+     * must be excluded explicitly — otherwise logged-out browsers would look
+     * authenticated while /api/ai/command correctly returns 401.
+     */
+    private boolean isAuthenticated(Authentication auth) {
+        if (auth == null || !auth.isAuthenticated() || auth.getPrincipal() == null) {
+            return false;
+        }
+        Object principal = auth.getPrincipal();
+        if (principal instanceof String) {
+            return false;
+        }
+        if ("anonymousUser".equals(auth.getName())) {
+            return false;
+        }
+        return auth.getAuthorities() != null
+                && auth.getAuthorities().stream()
+                        .noneMatch(a -> "ROLE_ANONYMOUS".equals(a.getAuthority()));
     }
 
     @GetMapping("/google-status")

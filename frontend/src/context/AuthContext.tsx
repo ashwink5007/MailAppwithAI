@@ -71,7 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('login') === 'success') {
+    if (params.get('login') === 'success' || params.get('logout') === 'success') {
       window.history.replaceState({}, '', window.location.pathname);
     }
     checkSession();
@@ -156,9 +156,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = useCallback(async () => {
     try {
+      // Backend returns 204 No Content (no cross-origin redirect) so a
+      // credentialed fetch never follows a redirect chain that browsers
+      // reject for Access-Control-Allow-Origin "*".
+      // redirect: 'manual' is belt-and-braces: even if the backend ever
+      // issued a redirect again, fetch would not follow it automatically.
       await fetch(`${BACKEND_URL}/logout`, {
         method: 'POST',
         credentials: 'include',
+        redirect: 'manual',
       });
     } catch {
       // Ignore network errors during logout
@@ -167,6 +173,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setGoogleConnected(false);
       setStatus('unauthenticated');
       setStatusMessage('');
+      // Explicit client-side navigation to the logged-out state.
+      // page.tsx renders <LoginPage /> whenever !isAuthenticated, so clearing
+      // state is sufficient — also strip any stale query params.
+      if (typeof window !== 'undefined') {
+        window.history.replaceState({}, '', window.location.pathname);
+      }
     }
   }, []);
 

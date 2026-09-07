@@ -23,11 +23,12 @@ public class UserController {
     /**
      * Endpoint used by frontend AuthContext (/api/user/me).
      * Supports both Google OAuth and email/password authentication.
+     * Anonymous requests return an empty map (frontend treats as logged out).
      */
     @GetMapping("/user/me")
     public Map<String, Object> getCurrentUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || auth.getPrincipal() == null) {
+        if (!isAuthenticated(auth)) {
             return Collections.emptyMap();
         }
 
@@ -63,7 +64,7 @@ public class UserController {
     @GetMapping("/users/me")
     public ApiResponse<User> getUsersMe() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || auth.getPrincipal() == null) {
+        if (!isAuthenticated(auth)) {
             return ApiResponse.error("Not authenticated");
         }
 
@@ -126,5 +127,24 @@ public class UserController {
         response.put("data", user);
 
         return response;
+    }
+
+    /**
+     * Anonymous tokens ("anonymousUser") report isAuthenticated()=true, so they
+     * must be excluded explicitly.
+     */
+    private boolean isAuthenticated(Authentication auth) {
+        if (auth == null || !auth.isAuthenticated() || auth.getPrincipal() == null) {
+            return false;
+        }
+        if (auth.getPrincipal() instanceof String) {
+            return false;
+        }
+        if ("anonymousUser".equals(auth.getName())) {
+            return false;
+        }
+        return auth.getAuthorities() != null
+                && auth.getAuthorities().stream()
+                        .noneMatch(a -> "ROLE_ANONYMOUS".equals(a.getAuthority()));
     }
 }

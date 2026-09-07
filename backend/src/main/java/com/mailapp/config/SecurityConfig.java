@@ -1,11 +1,11 @@
 package com.mailapp.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.annotation.Value;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -13,7 +13,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.web.cors.CorsConfigurationSource;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -32,28 +32,35 @@ import java.util.Map;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    @Value("${frontend.url:http://localhost:3000}")
-    private String frontendUrl;
-
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
+    private final CorsConfigurationSource corsConfigurationSource;
 
-    public SecurityConfig(OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler) {
+    public SecurityConfig(OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler,
+                          CorsConfigurationSource corsConfigurationSource) {
         this.oAuth2LoginSuccessHandler = oAuth2LoginSuccessHandler;
+        this.corsConfigurationSource = corsConfigurationSource;
     }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                // Apply CORS config from WebConfig
-                .cors(cors -> cors.configure(http))
+                // Single coherent CORS policy from WebConfig.corsConfigurationSource().
+                // The CorsFilter runs BEFORE the LogoutFilter/authorization chain so
+                // preflight (OPTIONS) and credentialed requests to /logout and
+                // /api/** (incl. POST /api/ai/command) are evaluated correctly.
+                // The exact requesting origin is echoed back — never "*".
+                .cors(cors -> cors.configurationSource(corsConfigurationSource))
 
                 // CSRF is disabled — we rely on session cookies + CORS allowlist
                 .csrf(csrf -> csrf.disable())
 
                 .authorizeHttpRequests(authz -> authz
+                        // CORS preflight never carries credentials — must not require auth.
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // Public endpoints — health check, user status, and OAuth diagnostic
                         .requestMatchers("/api/health", "/api/health/ready", "/api/user/me", "/api/users/me", "/api/debug/**", "/auth/**").permitAll()
-                        // All other /api/** require OAuth2 login
+                        // All other /api/** (incl. /api/ai/command, /api/emails/**)
+                        // require an authenticated Spring Security session.
                         .anyRequest().authenticated())
 
                 // When an unauthenticated request hits a protected /api/** endpoint,
@@ -65,11 +72,17 @@ public class SecurityConfig {
                 .oauth2Login(oauth2 -> oauth2
                         .successHandler(oAuth2LoginSuccessHandler))
 
-                // Spring Security's built-in logout endpoint: POST /logout
+                // API logout for fetch-based frontends: return 204 No Content and
+                // let the frontend navigate explicitly. A cross-origin 302 redirect
+                // (logoutSuccessUrl) followed by fetch would trigger the browser's
+                // credentialed-CORS wildcard rejection.
                 // Note: The frontend sends POST requests for logout (Spring Security 6+ default)
                 .logout(logout -> logout
-                        .logoutSuccessUrl(frontendUrl + "/?logout=success")
+                        .logoutUrl("/logout")
+                        .logoutSuccessHandler((request, response, authentication) ->
+                                response.setStatus(HttpServletResponse.SC_NO_CONTENT))
                         .invalidateHttpSession(true)
+                        .clearAuthentication(true)
                         .deleteCookies("JSESSIONID"));
 
         return http.build();
