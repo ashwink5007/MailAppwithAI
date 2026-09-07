@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AiMail | Next-Gen Email Client with AI Copilot",
-  description: "OAuth 2.0 protected responsive email client featuring autonomous AI Copilot workflows, smart summarization, and interactive thread assistance.",
+  title: "NebulaMail | AI-Powered Email Client with Copilot",
+  description: "AI-powered email client featuring autonomous Copilot workflows, smart summarization, and interactive thread assistance.",
 };
 
 export default function RootLayout({

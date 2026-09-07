@@ -23,6 +23,9 @@ yarn-error.log*
 .env
 .env*.local
 
+# Temporary files
+cookies.txt
+
 # System & IDE
 .DS_Store
 *.pem

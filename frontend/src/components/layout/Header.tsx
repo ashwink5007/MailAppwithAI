@@ -47,7 +47,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileSidebar }) => {
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="font-bold text-base tracking-tight text-slate-900">AiMail</span>
+              <span className="font-bold text-base tracking-tight text-slate-900">NebulaMail</span>
               <span className="text-[10px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
                 Copilot
               </span>
