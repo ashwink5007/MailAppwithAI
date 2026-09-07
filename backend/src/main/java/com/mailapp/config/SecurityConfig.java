@@ -92,7 +92,7 @@ public class SecurityConfig {
                 response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                 Map<String, Object> errorResponse = new LinkedHashMap<>();
                 errorResponse.put("success", false);
-                errorResponse.put("message", "Not authenticated. Please login via Google OAuth.");
+                errorResponse.put("message", "Not authenticated. Please login.");
                 errorResponse.put("data", null);
                 String body = new ObjectMapper().writeValueAsString(errorResponse);
                 response.getWriter().write(body);

@@ -63,7 +63,7 @@ export const LoginPage: React.FC = () => {
             <Sparkles className="w-5 h-5 text-white" />
           </div>
           <div>
-            <span className="font-bold text-lg tracking-tight text-slate-900">AiMail</span>
+            <span className="font-bold text-lg tracking-tight text-slate-900">NebulaMail</span>
             <span className="ml-2 text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
               Copilot 2.0
             </span>
@@ -72,7 +72,7 @@ export const LoginPage: React.FC = () => {
 
         <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
           <ShieldCheck className="w-4 h-4 text-blue-600" />
-          <span className="hidden sm:inline">Google OAuth 2.0 Protected</span>
+          <span className="hidden sm:inline">Secure Authentication</span>
         </div>
       </header>
 
@@ -213,7 +213,7 @@ export const LoginPage: React.FC = () => {
 
           {/* Permissions summary */}
           <div className="mt-6 p-4 bg-blue-50/60 border border-blue-100 rounded-2xl space-y-2">
-            <p className="text-xs font-bold text-blue-800 mb-1">What AiMail can do:</p>
+            <p className="text-xs font-bold text-blue-800 mb-1">What NebulaMail can do:</p>
             {[
               'Read, compose and send Gmail messages',
               'View your Gmail account labels and folders',
@@ -227,14 +227,14 @@ export const LoginPage: React.FC = () => {
           </div>
 
           <p className="text-center text-[10px] text-slate-400 mt-4">
-            Microsoft 365 and GitHub providers coming in a future sprint.
+            Your data is encrypted and never shared with third parties.
           </p>
         </div>
       </main>
 
       {/* Footer */}
       <footer className="px-6 py-4 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 z-10 gap-2 border-t border-blue-50">
-        <div>&copy; 2026 AiMail Inc. &middot; OAuth 2.0 Security Specification RFC 6749</div>
+        <div>&copy; 2026 NebulaMail Inc. &middot; All rights reserved.</div>
         <div className="flex items-center gap-4">
           <Link href="/privacy" className="hover:text-blue-600 transition">Privacy Policy</Link>
           <Link href="/terms" className="hover:text-blue-600 transition">Terms of Service</Link>

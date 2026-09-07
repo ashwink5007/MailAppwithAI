@@ -63,28 +63,25 @@ export const EmailList: React.FC<EmailListProps> = ({ onSelectEmailMobile }) => 
           </div>
         )}
 
-        {/* Google Not Connected State */}
+        {/* Demo Mode Banner — non-blocking info bar */}
         {!isLoading && !googleConnected && (
-          <div className="flex flex-col items-center justify-center p-8 text-center h-full">
-            <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-500 mb-3 shadow-sm">
-              <LinkIcon className="w-6 h-6" />
-            </div>
-            <h3 className="text-sm font-bold text-slate-800">Connect Google to access Gmail</h3>
-            <p className="text-xs text-slate-500 max-w-xs mt-1">
-              Link your Google account to read, send, and manage your Gmail messages.
+          <div className="px-4 py-2.5 bg-amber-50/80 border-b border-amber-200/60 flex items-center gap-2.5 shrink-0">
+            <LinkIcon className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            <p className="text-xs text-amber-800 flex-1">
+              Demo Mode — Using synthetic mailbox.{' '}
+              <button
+                onClick={connectGoogle}
+                className="font-bold underline hover:text-amber-900"
+              >
+                Connect Google
+              </button>{' '}
+              for real Gmail.
             </p>
-            <button
-              onClick={connectGoogle}
-              className="mt-3 flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-bold"
-            >
-              <LinkIcon className="w-3.5 h-3.5" />
-              Connect Google
-            </button>
           </div>
         )}
 
         {/* Error State */}
-        {!isLoading && isError && googleConnected && (
+        {!isLoading && isError && (
           <div className="flex flex-col items-center justify-center p-8 text-center h-full">
             <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500 mb-3 shadow-sm">
               <AlertCircle className="w-6 h-6" />
@@ -104,7 +101,7 @@ export const EmailList: React.FC<EmailListProps> = ({ onSelectEmailMobile }) => 
         )}
 
         {/* Email List */}
-        {!isLoading && !isError && googleConnected && filteredEmails.length > 0 && (
+        {!isLoading && !isError && filteredEmails.length > 0 && (
           filteredEmails.map(email => (
             <EmailCard
               key={email.id}

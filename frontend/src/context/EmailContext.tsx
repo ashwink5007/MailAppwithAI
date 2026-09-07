@@ -84,7 +84,8 @@ export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [retryCounter, setRetryCounter] = useState<number>(0);
 
-  // Load emails from the backend whenever the user is authenticated AND Google is connected
+  // Load emails from the backend whenever the user is authenticated.
+  // REAL_GMAIL users get real Gmail data; DEMO users get synthetic mailbox data.
   useEffect(() => {
     let cancelled = false;
 
