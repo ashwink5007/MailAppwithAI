@@ -105,7 +105,7 @@ public class HealthController {
         }
         try (Connection conn = dataSource.getConnection()) {
             var rs = conn.createStatement().executeQuery(
-                    "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = 'users' ORDER BY ordinal_position");
+                    "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = 'users' AND table_schema = 'public' ORDER BY ordinal_position");
             var columns = new java.util.ArrayList<Map<String, Object>>();
             while (rs.next()) {
                 var col = new LinkedHashMap<String, Object>();
