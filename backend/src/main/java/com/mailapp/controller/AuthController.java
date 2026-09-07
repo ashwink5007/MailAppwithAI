@@ -7,6 +7,7 @@ import com.mailapp.entity.User;
 import com.mailapp.repository.UserRepository;
 import com.mailapp.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,9 +16,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -31,6 +35,14 @@ public class AuthController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserService userService;
+
+    /**
+     * Framework-blessed store for the programmatic email/password login below.
+     * Uses the exact key/format that SecurityContextHolderFilter reads back on
+     * the next request — never a hand-rolled session attribute that can drift.
+     */
+    private final SecurityContextRepository securityContextRepository =
+            new HttpSessionSecurityContextRepository();
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<Map<String, Object>>> register(
@@ -75,7 +87,8 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<Map<String, Object>>> login(
             @RequestBody @Valid LoginRequest request,
-            HttpServletRequest httpRequest) {
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
         try {
             String email = request.email().trim().toLowerCase();
 
@@ -99,10 +112,15 @@ public class AuthController {
                     user,
                     null,
                     List.of(new SimpleGrantedAuthority("ROLE_USER")));
-            SecurityContextHolder.getContext().setAuthentication(auth);
 
-            HttpSession session = httpRequest.getSession(true);
-            session.setAttribute("SPRING_SECURITY_CONTEXT", SecurityContextHolder.getContext());
+            // Persist via the SecurityContextRepository (same store the
+            // SecurityContextHolderFilter loads on subsequent requests) and
+            // ensure a session exists so the JSESSIONID cookie is issued.
+            SecurityContext context = SecurityContextHolder.createEmptyContext();
+            context.setAuthentication(auth);
+            SecurityContextHolder.setContext(context);
+            httpRequest.getSession(true);
+            securityContextRepository.saveContext(context, httpRequest, httpResponse);
 
             log.info("User logged in via email/password: {}", email);
 

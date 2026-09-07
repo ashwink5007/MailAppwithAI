@@ -27,7 +27,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [googleConnected, setGoogleConnected] = useState<boolean>(false);
 
-  const checkSession = useCallback(async () => {
+  // Returns true when an authenticated user was resolved, false otherwise.
+  // Callers (login, OAuth return) use this to detect a failed session
+  // handoff instead of silently bouncing back to the login form in a loop.
+  const checkSession = useCallback(async (): Promise<boolean> => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/user/me`, {
         credentials: 'include',
@@ -36,7 +39,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(null);
         setGoogleConnected(false);
         setStatus('unauthenticated');
-        return;
+        return false;
       }
       const data = await res.json();
       const userData = data?.data && data.data.email ? data.data : data;
@@ -57,24 +60,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setGoogleConnected(profile.googleConnected ?? false);
         setStatus('authenticated');
         setStatusMessage('');
+        return true;
       } else {
         setUser(null);
         setGoogleConnected(false);
         setStatus('unauthenticated');
+        return false;
       }
     } catch {
       setUser(null);
       setGoogleConnected(false);
       setStatus('unauthenticated');
+      return false;
     }
   }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('login') === 'success' || params.get('logout') === 'success') {
+    const hadLoginParam = params.get('login') === 'success';
+    if (hadLoginParam || params.get('logout') === 'success') {
       window.history.replaceState({}, '', window.location.pathname);
     }
-    checkSession();
+    // After a Google OAuth return (?login=success) an empty session means the
+    // session handoff failed — say so explicitly instead of silently looping
+    // back to a blank login form. Plain anonymous visits stay message-free.
+    checkSession().then((ok) => {
+      if (!ok && hadLoginParam) {
+        setStatusMessage('Google sign-in finished but no session was found. Please enable cookies for this site and try again.');
+      }
+    });
   }, [checkSession]);
 
   const loginWithOAuth = useCallback((provider: OAuthProvider) => {
@@ -121,7 +135,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       const body = await res.json();
       if (body.success) {
-        await checkSession();
+        // Verify the session was actually established before reporting
+        // success — otherwise the UI would bounce back to a blank login
+        // form with no error (the login→/me→login loop).
+        const established = await checkSession();
+        if (!established) {
+          console.warn('[auth] login accepted but session was not established (cookie rejected or missing)');
+          return { success: false, message: 'Signed in, but the session was not established. Please enable cookies for this site and try again.' };
+        }
         return { success: true, message: body.message };
       }
       setStatus('unauthenticated');
