@@ -19,9 +19,8 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# Environment variables
+# Environment variables (keep .env.example tracked as a template)
 .env
-.env.example
 .env*.local
 
 # System & IDE

@@ -13,8 +13,6 @@
   "dependencies": {
     "@copilotkit/react-core": "^1.70.1",
     "@copilotkit/runtime": "^1.70.1",
-    "@supabase/ssr": "^0.12.6",
-    "@supabase/supabase-js": "^2.115.0",
     "lucide-react": "^1.41.0",
     "next": "16.3.4",
     "react": "19.2.8",

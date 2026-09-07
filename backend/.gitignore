@@ -34,4 +34,3 @@ build/
 
 ### Env ###
 .env
-.env.example
