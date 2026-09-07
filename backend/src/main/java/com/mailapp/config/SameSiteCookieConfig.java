@@ -2,6 +2,7 @@ package com.mailapp.config;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletResponseWrapper;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -15,16 +16,22 @@ import java.io.IOException;
 /**
  * Ensures every Set-Cookie header includes SameSite=None.
  *
- * CRITICAL ORDERING: This filter MUST run BEFORE Spring Security's
- * FilterChainProxy (order -100). If it runs after, Spring Security
- * sets the JSESSIONID cookie on the original (unwrapped) response
- * before our wrapper intercepts it, and the cookie is sent without
- * SameSite=None. The browser then defaults to SameSite=Lax, which
- * blocks the cookie on cross-origin fetch requests from Vercel to
- * Railway, causing the frontend to never recognize the session.
+ * WHY THIS IS NEEDED:
+ * In production, the frontend (Vercel) and backend (Railway) are on different
+ * domains. The browser requires SameSite=None for cross-origin cookie sending.
+ * Without it, the browser defaults to SameSite=Lax, which blocks the session
+ * cookie on cross-origin fetch requests, causing the frontend to never see
+ * the authenticated session.
  *
- * Registered via FilterRegistrationBean with HIGHEST_PRECEDENCE + 100
- * to guarantee execution before Spring Security.
+ * WHY addCookie() MUST BE OVERRIDDEN:
+ * Tomcat's session cookie (JSESSIONID) is set via Response.addCookie(), which
+ * internally calls this.addHeader() on the ORIGINAL Response object — bypassing
+ * our wrapper's addHeader() override entirely. Overriding addCookie() is the
+ * only way to intercept Tomcat's session cookie.
+ *
+ * CRITICAL ORDERING: This filter MUST run BEFORE Spring Security's
+ * FilterChainProxy (order -100). Registered via FilterRegistrationBean
+ * with HIGHEST_PRECEDENCE + 100 to guarantee execution before Spring Security.
  */
 @Configuration
 public class SameSiteCookieConfig {
@@ -40,6 +47,21 @@ public class SameSiteCookieConfig {
 
                 HttpServletResponseWrapper wrappedResponse =
                         new HttpServletResponseWrapper(response) {
+
+                            /**
+                             * CRITICAL: This is how Tomcat sets the JSESSIONID session cookie.
+                             * Response.addCookie() internally calls this.addHeader() on the
+                             * ORIGINAL response, bypassing our addHeader() override.
+                             * We MUST override addCookie() to intercept session cookies.
+                             */
+                            @Override
+                            public void addCookie(Cookie cookie) {
+                                if (cookie != null) {
+                                    cookie.setAttribute("SameSite", "None");
+                                }
+                                super.addCookie(cookie);
+                            }
+
                             @Override
                             public void addHeader(String name, String value) {
                                 if ("Set-Cookie".equalsIgnoreCase(name) && value != null
