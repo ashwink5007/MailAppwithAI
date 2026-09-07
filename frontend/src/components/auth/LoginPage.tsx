@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import {
   Sparkles,
   ShieldCheck,
@@ -147,8 +148,8 @@ export const LoginPage: React.FC = () => {
       <footer className="px-6 py-4 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 z-10 gap-2 border-t border-blue-50">
         <div>© 2026 AiMail Inc. · OAuth 2.0 Security Specification RFC 6749</div>
         <div className="flex items-center gap-4">
-          <a href="#" className="hover:text-blue-600 transition">Privacy Policy</a>
-          <a href="#" className="hover:text-blue-600 transition">Terms of Service</a>
+          <Link href="/privacy" className="hover:text-blue-600 transition">Privacy Policy</Link>
+          <Link href="/terms" className="hover:text-blue-600 transition">Terms of Service</Link>
         </div>
       </footer>
     </div>
