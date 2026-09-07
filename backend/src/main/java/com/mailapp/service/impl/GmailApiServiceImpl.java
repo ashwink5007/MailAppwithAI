@@ -114,8 +114,9 @@ public class GmailApiServiceImpl implements EmailService {
             return null;
         }
 
+        final String token = accessTokenValue;
         HttpRequestInitializer requestInitializer = request -> request.getHeaders()
-                .setAuthorization("Bearer " + accessTokenValue);
+                .setAuthorization("Bearer " + token);
 
         try {
             return new Gmail.Builder(
@@ -225,6 +226,91 @@ public class GmailApiServiceImpl implements EmailService {
             }
         } catch (Exception e) {
             throw new IllegalStateException("Failed to move email to trash through Gmail", e);
+        }
+    }
+
+    @Override
+    public void markAsUnread(String id) {
+        Gmail service = requireGmailService();
+        try {
+            Message message = service.users().messages().get("me", id).setFields("threadId").execute();
+            if (message.getThreadId() != null) {
+                System.out.println("Marking Gmail thread as unread. Thread ID: " + message.getThreadId());
+                service.users().threads().modify("me", message.getThreadId(),
+                        new com.google.api.services.gmail.model.ModifyThreadRequest()
+                                .setAddLabelIds(List.of("UNREAD")))
+                        .execute();
+            } else {
+                System.out.println("Marking Gmail message as unread. Message ID: " + id);
+                service.users().messages().modify("me", id,
+                        new ModifyMessageRequest().setAddLabelIds(List.of("UNREAD"))).execute();
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to mark email as unread through Gmail", e);
+        }
+    }
+
+    @Override
+    public void toggleStar(String id) {
+        Gmail service = requireGmailService();
+        try {
+            Message message = service.users().messages().get("me", id).setFields("labelIds,threadId").execute();
+            List<String> labels = message.getLabelIds() != null ? message.getLabelIds() : List.of();
+            boolean isCurrentlyStarred = labels.contains("STARRED");
+
+            com.google.api.services.gmail.model.ModifyThreadRequest threadReq =
+                    new com.google.api.services.gmail.model.ModifyThreadRequest();
+            ModifyMessageRequest msgReq = new ModifyMessageRequest();
+
+            if (isCurrentlyStarred) {
+                System.out.println("Unstarring Gmail message. ID: " + id);
+                threadReq.setRemoveLabelIds(List.of("STARRED"));
+                msgReq.setRemoveLabelIds(List.of("STARRED"));
+            } else {
+                System.out.println("Starring Gmail message. ID: " + id);
+                threadReq.setAddLabelIds(List.of("STARRED"));
+                msgReq.setAddLabelIds(List.of("STARRED"));
+            }
+
+            if (message.getThreadId() != null) {
+                service.users().threads().modify("me", message.getThreadId(), threadReq).execute();
+            } else {
+                service.users().messages().modify("me", id, msgReq).execute();
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to toggle star through Gmail", e);
+        }
+    }
+
+    @Override
+    public void toggleImportant(String id) {
+        Gmail service = requireGmailService();
+        try {
+            Message message = service.users().messages().get("me", id).setFields("labelIds,threadId").execute();
+            List<String> labels = message.getLabelIds() != null ? message.getLabelIds() : List.of();
+            boolean isCurrentlyImportant = labels.contains("IMPORTANT");
+
+            com.google.api.services.gmail.model.ModifyThreadRequest threadReq =
+                    new com.google.api.services.gmail.model.ModifyThreadRequest();
+            ModifyMessageRequest msgReq = new ModifyMessageRequest();
+
+            if (isCurrentlyImportant) {
+                System.out.println("Removing Important label from Gmail message. ID: " + id);
+                threadReq.setRemoveLabelIds(List.of("IMPORTANT"));
+                msgReq.setRemoveLabelIds(List.of("IMPORTANT"));
+            } else {
+                System.out.println("Adding Important label to Gmail message. ID: " + id);
+                threadReq.setAddLabelIds(List.of("IMPORTANT"));
+                msgReq.setAddLabelIds(List.of("IMPORTANT"));
+            }
+
+            if (message.getThreadId() != null) {
+                service.users().threads().modify("me", message.getThreadId(), threadReq).execute();
+            } else {
+                service.users().messages().modify("me", id, msgReq).execute();
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to toggle importance through Gmail", e);
         }
     }
 

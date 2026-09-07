@@ -45,5 +45,11 @@ public interface EmailService {
 
     void markAsRead(String id);
 
+    void markAsUnread(String id);
+
+    void toggleStar(String id);
+
+    void toggleImportant(String id);
+
     void moveToTrash(String id);
 }

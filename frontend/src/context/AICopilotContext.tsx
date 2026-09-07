@@ -171,7 +171,7 @@ export const AICopilotProvider: React.FC<{ children: React.ReactNode }> = ({ chi
    * Executes the action returned by the backend Gemini AI,
    * updating React state directly (NO DOM automation).
    */
-  const executeAction = useCallback((action: AiAction) => {
+  const executeAction = useCallback(async (action: AiAction) => {
     switch (action.type) {
       case 'NAVIGATE': {
         const view = String(action.payload?.view || 'INBOX').toLowerCase();
@@ -261,20 +261,20 @@ export const AICopilotProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       case 'MARK_READ': {
         const targetId = typeof action.payload?.emailId === 'string' ? action.payload.emailId : selectedEmail?.id;
-        if (targetId) markAsRead([targetId]);
+        if (targetId) await markAsRead([targetId]);
         break;
       }
 
       case 'MARK_UNREAD': {
         const targetId = typeof action.payload?.emailId === 'string' ? action.payload.emailId : selectedEmail?.id;
-        if (targetId) markAsUnread([targetId]);
+        if (targetId) await markAsUnread([targetId]);
         break;
       }
 
       case 'STAR_EMAIL':
       case 'UNSTAR_EMAIL': {
         const targetId = typeof action.payload?.emailId === 'string' ? action.payload.emailId : selectedEmail?.id;
-        if (targetId) toggleStar(targetId);
+        if (targetId) await toggleStar(targetId);
         break;
       }
 
@@ -283,7 +283,7 @@ export const AICopilotProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const targetFolder = String(action.payload?.folder || 'archive').toLowerCase();
         if (targetId) {
           if (targetFolder === 'trash') {
-            deleteEmails([targetId]);
+            await deleteEmails([targetId]);
           } else {
             archiveEmails([targetId]);
           }
@@ -294,7 +294,7 @@ export const AICopilotProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       case 'DELETE_EMAIL': {
         const targetId = typeof action.payload?.emailId === 'string' ? action.payload.emailId : selectedEmail?.id;
         if (targetId) {
-          deleteEmails([targetId]);
+          await deleteEmails([targetId]);
         }
         break;
       }
@@ -346,7 +346,7 @@ export const AICopilotProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setStatusMessage('Applying action…');
 
       // Execute the action through React state (NO DOM automation)
-      executeAction(result.action);
+      await executeAction(result.action);
 
       setStatus('completed');
       setStatusMessage('Done.');

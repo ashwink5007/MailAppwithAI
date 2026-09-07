@@ -69,6 +69,18 @@ export async function markEmailAsRead(id: string): Promise<void> {
   await api.patch<void>(`/api/emails/${id}/read`, {});
 }
 
+export async function markEmailAsUnread(id: string): Promise<void> {
+  await api.patch<void>(`/api/emails/${id}/unread`, {});
+}
+
+export async function toggleEmailStar(id: string): Promise<void> {
+  await api.patch<void>(`/api/emails/${id}/star`, {});
+}
+
+export async function toggleEmailImportant(id: string): Promise<void> {
+  await api.patch<void>(`/api/emails/${id}/important`, {});
+}
+
 export async function deleteEmail(id: string): Promise<void> {
   await api.delete<void>(`/api/emails/${id}`);
 }

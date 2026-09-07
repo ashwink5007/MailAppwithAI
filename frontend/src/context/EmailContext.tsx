@@ -6,6 +6,9 @@ import {
   deleteEmail,
   getAllEmails,
   markEmailAsRead,
+  markEmailAsUnread,
+  toggleEmailStar,
+  toggleEmailImportant,
   sendEmail as sendEmailRequest,
   sendReply as sendReplyRequest,
 } from '../services/emailService';
@@ -41,11 +44,11 @@ interface EmailContextType {
   setSearchQuery: (q: string) => void;
   setFilterTab: (tab: EmailFilterTab) => void;
   setAiDateRange: (dateRange: string | null) => void;
-  toggleStar: (id: string) => void;
-  toggleImportant: (id: string) => void;
+  toggleStar: (id: string) => Promise<void>;
+  toggleImportant: (id: string) => Promise<void>;
   toggleRead: (id: string) => void;
   markAsRead: (ids: string[]) => Promise<void>;
-  markAsUnread: (ids: string[]) => void;
+  markAsUnread: (ids: string[]) => Promise<void>;
   archiveEmails: (ids: string[]) => void;
   deleteEmails: (ids: string[]) => Promise<void>;
   sendEmail: (data: { to: string; subject: string; body: string; cc?: string; bcc?: string }) => Promise<void>;
@@ -149,16 +152,31 @@ export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
   }, []);
 
-  const toggleStar = useCallback((id: string) => {
+  const toggleStar = useCallback(async (id: string) => {
     setEmails(prev => prev.map(email => 
       email.id === id ? { ...email, isStarred: !email.isStarred } : email
     ));
+    try {
+      await toggleEmailStar(id);
+    } catch {
+      // Revert on failure
+      setEmails(prev => prev.map(email => 
+        email.id === id ? { ...email, isStarred: !email.isStarred } : email
+      ));
+    }
   }, []);
 
-  const toggleImportant = useCallback((id: string) => {
+  const toggleImportant = useCallback(async (id: string) => {
     setEmails(prev => prev.map(email => 
       email.id === id ? { ...email, isImportant: !email.isImportant } : email
     ));
+    try {
+      await toggleEmailImportant(id);
+    } catch {
+      setEmails(prev => prev.map(email => 
+        email.id === id ? { ...email, isImportant: !email.isImportant } : email
+      ));
+    }
   }, []);
 
   const toggleRead = useCallback((id: string) => {
@@ -175,7 +193,8 @@ export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     ));
   }, [emails]);
 
-  const markAsUnread = useCallback((ids: string[]) => {
+  const markAsUnread = useCallback(async (ids: string[]) => {
+    await Promise.all(ids.map(id => markEmailAsUnread(id)));
     setEmails(prev => prev.map(email => 
       ids.includes(email.id) ? { ...email, isRead: false } : email
     ));

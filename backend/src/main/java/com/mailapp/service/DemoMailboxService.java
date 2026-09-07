@@ -66,6 +66,39 @@ public class DemoMailboxService {
         }
     }
 
+    public void markAsUnread(User user, String id) {
+        List<EmailDto> mailbox = getOrCreateMailbox(user);
+        for (int i = 0; i < mailbox.size(); i++) {
+            EmailDto email = mailbox.get(i);
+            if (email.getId().equals(id)) {
+                mailbox.set(i, copyWithReadStatus(email, false));
+                return;
+            }
+        }
+    }
+
+    public void toggleStar(User user, String id) {
+        List<EmailDto> mailbox = getOrCreateMailbox(user);
+        for (int i = 0; i < mailbox.size(); i++) {
+            EmailDto email = mailbox.get(i);
+            if (email.getId().equals(id)) {
+                mailbox.set(i, copyWithStarred(email, !email.isStarred()));
+                return;
+            }
+        }
+    }
+
+    public void toggleImportant(User user, String id) {
+        List<EmailDto> mailbox = getOrCreateMailbox(user);
+        for (int i = 0; i < mailbox.size(); i++) {
+            EmailDto email = mailbox.get(i);
+            if (email.getId().equals(id)) {
+                mailbox.set(i, copyWithImportant(email, !email.isImportant()));
+                return;
+            }
+        }
+    }
+
     public void moveToTrash(User user, String id) {
         List<EmailDto> mailbox = getOrCreateMailbox(user);
         for (int i = 0; i < mailbox.size(); i++) {
@@ -682,6 +715,46 @@ public class DemoMailboxService {
                 .isStarred(original.isStarred())
                 .isImportant(original.isImportant())
                 .folder(folder)
+                .labels(original.getLabels())
+                .thread(original.getThread())
+                .attachments(original.getAttachments())
+                .needsResponse(original.getNeedsResponse())
+                .build();
+    }
+
+    private EmailDto copyWithStarred(EmailDto original, boolean isStarred) {
+        return EmailDto.builder()
+                .id(original.getId())
+                .sender(original.getSender())
+                .recipients(original.getRecipients())
+                .subject(original.getSubject())
+                .snippet(original.getSnippet())
+                .timestamp(original.getTimestamp())
+                .fullDate(original.getFullDate())
+                .isRead(original.isRead())
+                .isStarred(isStarred)
+                .isImportant(original.isImportant())
+                .folder(original.getFolder())
+                .labels(original.getLabels())
+                .thread(original.getThread())
+                .attachments(original.getAttachments())
+                .needsResponse(original.getNeedsResponse())
+                .build();
+    }
+
+    private EmailDto copyWithImportant(EmailDto original, boolean isImportant) {
+        return EmailDto.builder()
+                .id(original.getId())
+                .sender(original.getSender())
+                .recipients(original.getRecipients())
+                .subject(original.getSubject())
+                .snippet(original.getSnippet())
+                .timestamp(original.getTimestamp())
+                .fullDate(original.getFullDate())
+                .isRead(original.isRead())
+                .isStarred(original.isStarred())
+                .isImportant(isImportant)
+                .folder(original.getFolder())
                 .labels(original.getLabels())
                 .thread(original.getThread())
                 .attachments(original.getAttachments())

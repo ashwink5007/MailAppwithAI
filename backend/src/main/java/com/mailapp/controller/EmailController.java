@@ -90,6 +90,24 @@ public class EmailController {
         return ResponseEntity.ok(ApiResponse.ok("Email marked as read", null));
     }
 
+    @PatchMapping("/{id}/unread")
+    public ResponseEntity<ApiResponse<Void>> markAsUnread(@PathVariable String id) {
+        emailService.markAsUnread(id);
+        return ResponseEntity.ok(ApiResponse.ok("Email marked as unread", null));
+    }
+
+    @PatchMapping("/{id}/star")
+    public ResponseEntity<ApiResponse<Void>> toggleStar(@PathVariable String id) {
+        emailService.toggleStar(id);
+        return ResponseEntity.ok(ApiResponse.ok("Star toggled", null));
+    }
+
+    @PatchMapping("/{id}/important")
+    public ResponseEntity<ApiResponse<Void>> toggleImportant(@PathVariable String id) {
+        emailService.toggleImportant(id);
+        return ResponseEntity.ok(ApiResponse.ok("Importance toggled", null));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> moveToTrash(@PathVariable String id) {
         emailService.moveToTrash(id);

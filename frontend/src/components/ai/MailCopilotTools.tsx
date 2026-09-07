@@ -21,6 +21,10 @@ export const MailCopilotTools: React.FC = () => {
     setAiDateRange,
     openCompose,
     setSelectedEmailId,
+    markAsRead,
+    markAsUnread,
+    toggleStar,
+    deleteEmails,
     emails,
     selectedEmail,
   } = useEmail();
@@ -170,6 +174,72 @@ export const MailCopilotTools: React.FC = () => {
           : `Re: ${selectedEmail.subject}`,
       });
       return `Reply compose window opened for ${selectedEmail.sender.name}.`;
+    },
+  });
+
+  useFrontendTool({
+    name: 'mark_read',
+    description: 'Mark one or more emails as read.',
+    parameters: z.object({
+      emailId: z.string().optional().describe('The email ID to mark as read'),
+    }),
+    handler: async ({ emailId }) => {
+      const targetId = emailId || selectedEmail?.id;
+      if (!targetId) return 'No email selected to mark as read.';
+      await markAsRead([targetId]);
+      return 'Marked email as read.';
+    },
+  });
+
+  useFrontendTool({
+    name: 'mark_unread',
+    description: 'Mark one or more emails as unread.',
+    parameters: z.object({
+      emailId: z.string().optional().describe('The email ID to mark as unread'),
+    }),
+    handler: async ({ emailId }) => {
+      const targetId = emailId || selectedEmail?.id;
+      if (!targetId) return 'No email selected to mark as unread.';
+      await markAsUnread([targetId]);
+      return 'Marked email as unread.';
+    },
+  });
+
+  useFrontendTool({
+    name: 'star_email',
+    description: 'Star or unstar an email.',
+    parameters: z.object({
+      emailId: z.string().optional().describe('The email ID to star/unstar'),
+    }),
+    handler: async ({ emailId }) => {
+      const targetId = emailId || selectedEmail?.id;
+      if (!targetId) return 'No email selected to star.';
+      await toggleStar(targetId);
+      return 'Star toggled.';
+    },
+  });
+
+  useFrontendTool({
+    name: 'delete_email',
+    description: 'Move an email to trash. This is a destructive action.',
+    parameters: z.object({
+      emailId: z.string().optional().describe('The email ID to delete'),
+    }),
+    handler: async ({ emailId }) => {
+      const targetId = emailId || selectedEmail?.id;
+      if (!targetId) return 'No email selected to delete.';
+      await deleteEmails([targetId]);
+      return 'Email moved to trash.';
+    },
+  });
+
+  useFrontendTool({
+    name: 'summarize_email',
+    description: 'Get a summary of the currently selected email.',
+    parameters: z.object({}),
+    handler: async () => {
+      if (!selectedEmail) return 'No email is currently selected.';
+      return `Summary of "${selectedEmail.subject}": ${selectedEmail.snippet}`;
     },
   });
 

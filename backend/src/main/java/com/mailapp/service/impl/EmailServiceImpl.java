@@ -147,6 +147,36 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
+    public void markAsUnread(String id) {
+        UserRoutingContext ctx = resolveContext();
+        if (ctx.mode() == MailboxMode.REAL_GMAIL) {
+            gmailApiService.markAsUnread(id);
+            return;
+        }
+        demoMailboxService.markAsUnread(ctx.user(), id);
+    }
+
+    @Override
+    public void toggleStar(String id) {
+        UserRoutingContext ctx = resolveContext();
+        if (ctx.mode() == MailboxMode.REAL_GMAIL) {
+            gmailApiService.toggleStar(id);
+            return;
+        }
+        demoMailboxService.toggleStar(ctx.user(), id);
+    }
+
+    @Override
+    public void toggleImportant(String id) {
+        UserRoutingContext ctx = resolveContext();
+        if (ctx.mode() == MailboxMode.REAL_GMAIL) {
+            gmailApiService.toggleImportant(id);
+            return;
+        }
+        demoMailboxService.toggleImportant(ctx.user(), id);
+    }
+
+    @Override
     public void moveToTrash(String id) {
         UserRoutingContext ctx = resolveContext();
         if (ctx.mode() == MailboxMode.REAL_GMAIL) {
