@@ -99,6 +99,22 @@ function describeExecutedAction(action: AiAction): string {
       return 'Opening the email for you.';
     case 'PREPARE_REPLY':
       return 'Compose window opened with reply context. Complete and send when ready.';
+    case 'MARK_READ':
+      return 'Marked email as read.';
+    case 'MARK_UNREAD':
+      return 'Marked email as unread.';
+    case 'STAR_EMAIL':
+      return 'Starred email.';
+    case 'UNSTAR_EMAIL':
+      return 'Unstarred email.';
+    case 'MOVE_EMAIL': {
+      const folder = String(action.payload?.folder || 'archive');
+      return `Moved email to ${folder}.`;
+    }
+    case 'DELETE_EMAIL':
+      return 'Email moved to trash.';
+    case 'SUMMARIZE_EMAIL':
+      return 'Here is a summary of the selected conversation:';
     case 'UNKNOWN': {
       const reason = action.payload?.reason ? String(action.payload.reason) : '';
       return reason
@@ -125,12 +141,19 @@ export const AICopilotProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     activeLabel,
     filterTab,
     emails,
+    filteredEmails,
+    mailboxMode,
     setActiveFolder,
     setSearchQuery,
     setFilterTab,
     setAiDateRange,
     openCompose,
     setSelectedEmailId,
+    markAsRead,
+    markAsUnread,
+    toggleStar,
+    deleteEmails,
+    archiveEmails,
   } = useEmail();
 
   const toggleOpen = useCallback(() => {
@@ -155,7 +178,7 @@ export const AICopilotProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const folderMap: Record<string, FolderId> = {
           inbox: 'inbox',
           sent: 'sent',
-          compose: 'inbox', // navigate to inbox then open compose
+          compose: 'inbox',
           drafts: 'drafts',
           spam: 'spam',
           trash: 'trash',
@@ -165,7 +188,6 @@ export const AICopilotProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const folder = folderMap[view] || 'inbox';
         setActiveFolder(folder);
         if (view === 'compose') {
-          // Small tick to let folder render first
           setTimeout(() => openCompose(), 50);
         }
         break;
@@ -192,7 +214,6 @@ export const AICopilotProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const keyword = typeof p.keyword === 'string' ? p.keyword : '';
         const dateRange = typeof p.dateRange === 'string' ? p.dateRange : null;
 
-        // Navigate to inbox to show filtered results
         setActiveFolder('inbox');
         setFilterTab(unread ? 'unread' : 'all');
         setSearchQuery(sender || keyword);
@@ -215,7 +236,6 @@ export const AICopilotProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (emailId) {
           setSelectedEmailId(emailId);
         } else if (p.sender || p.keyword) {
-          // Try to find by sender name/email or subject keyword
           const query = String(p.sender || p.keyword || '').toLowerCase();
           const match = emails.find(e =>
             e.sender.name.toLowerCase().includes(query) ||
@@ -239,14 +259,55 @@ export const AICopilotProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         break;
       }
 
+      case 'MARK_READ': {
+        const targetId = typeof action.payload?.emailId === 'string' ? action.payload.emailId : selectedEmail?.id;
+        if (targetId) markAsRead([targetId]);
+        break;
+      }
+
+      case 'MARK_UNREAD': {
+        const targetId = typeof action.payload?.emailId === 'string' ? action.payload.emailId : selectedEmail?.id;
+        if (targetId) markAsUnread([targetId]);
+        break;
+      }
+
+      case 'STAR_EMAIL':
+      case 'UNSTAR_EMAIL': {
+        const targetId = typeof action.payload?.emailId === 'string' ? action.payload.emailId : selectedEmail?.id;
+        if (targetId) toggleStar(targetId);
+        break;
+      }
+
+      case 'MOVE_EMAIL': {
+        const targetId = typeof action.payload?.emailId === 'string' ? action.payload.emailId : selectedEmail?.id;
+        const targetFolder = String(action.payload?.folder || 'archive').toLowerCase();
+        if (targetId) {
+          if (targetFolder === 'trash') {
+            deleteEmails([targetId]);
+          } else {
+            archiveEmails([targetId]);
+          }
+        }
+        break;
+      }
+
+      case 'DELETE_EMAIL': {
+        const targetId = typeof action.payload?.emailId === 'string' ? action.payload.emailId : selectedEmail?.id;
+        if (targetId) {
+          deleteEmails([targetId]);
+        }
+        break;
+      }
+
+      case 'SUMMARIZE_EMAIL':
       case 'UNKNOWN':
       default:
-        // No UI action — description message is enough
         break;
     }
   }, [
     setActiveFolder, openCompose, setFilterTab, setSearchQuery,
     setAiDateRange, setSelectedEmailId, emails, selectedEmail,
+    markAsRead, markAsUnread, toggleStar, deleteEmails, archiveEmails,
   ]);
 
   const executeBackendCommand = useCallback(async (userText: string) => {
@@ -262,12 +323,24 @@ export const AICopilotProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     try {
       const currentView = selectedEmail ? 'EMAIL_DETAIL' : activeFolder.toUpperCase();
+      const firstInbox = emails.find(e => e.folder === 'inbox') || emails[0] || null;
+
       setStatusMessage('Sending to AI Copilot…');
-      const result = await interpretAiCommand(userText, currentView, selectedEmail, {
-        activeFolder,
-        activeLabel,
-        filterTab,
-      });
+      const result = await interpretAiCommand(
+        userText,
+        currentView,
+        selectedEmail,
+        {
+          activeFolder,
+          activeLabel,
+          filterTab,
+        },
+        {
+          latestEmail: firstInbox,
+          visibleEmails: filteredEmails,
+          mailboxMode,
+        }
+      );
 
       setStatus('executing');
       setStatusMessage('Applying action…');
@@ -277,11 +350,23 @@ export const AICopilotProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       setStatus('completed');
       setStatusMessage('Done.');
+
+      let summaryBullets: string[] | undefined = undefined;
+      if (result.action.type === 'SUMMARIZE_EMAIL' && selectedEmail) {
+        summaryBullets = [
+          `Topic: ${selectedEmail.subject}`,
+          `Sender: ${selectedEmail.sender.name} (${selectedEmail.sender.email})`,
+          `Key point: ${selectedEmail.snippet}`,
+          selectedEmail.needsResponse ? 'Action item: Response requested.' : 'Action item: Informational only, no reply needed.',
+        ];
+      }
+
       setMessages(prev => [...prev, {
         id: `ai-${Date.now()}`,
         sender: 'assistant',
         timestamp,
         text: describeExecutedAction(result.action),
+        summaryBullets,
       }]);
     } catch (error) {
       setStatus('error');
@@ -301,7 +386,7 @@ export const AICopilotProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setStatusMessage('');
       }, 2000);
     }
-  }, [activeFolder, activeLabel, filterTab, selectedEmail, executeAction]);
+  }, [activeFolder, activeLabel, filterTab, selectedEmail, emails, filteredEmails, mailboxMode, executeAction]);
 
   const summarizeCurrentEmail = useCallback(() =>
     executeBackendCommand('Summarize this email thread and highlight action items.'),
@@ -321,19 +406,24 @@ export const AICopilotProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const confirmAction = useCallback(async (action: ActionProposal) => {
     setStatus('completed');
-    setStatusMessage('Destructive batch actions require explicit confirmation.');
+    setStatusMessage('Action confirmed.');
     setPendingAction(null);
+    if (action.type === 'delete_emails') {
+      await deleteEmails(action.targetEmailIds);
+    } else if (action.type === 'mark_read') {
+      await markAsRead(action.targetEmailIds);
+    }
     setMessages(prev => [
       ...prev,
       {
         id: `ai-${Date.now()}`,
         sender: 'assistant',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        text: `I understood **${action.title}**, but destructive actions require explicit human approval before executing.`,
+        text: `Confirmed and executed **${action.title}**.`,
       },
     ]);
     setTimeout(() => setStatus('idle'), 2000);
-  }, []);
+  }, [deleteEmails, markAsRead]);
 
   const cancelAction = useCallback(() => {
     setPendingAction(null);

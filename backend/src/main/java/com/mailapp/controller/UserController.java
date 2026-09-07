@@ -42,6 +42,7 @@ public class UserController {
             response.put("id", user.getId());
             response.put("googleId", user.getGoogleId());
             response.put("googleConnected", user.getGoogleId() != null);
+            response.put("mailboxMode", user.getGoogleId() != null ? "REAL_GMAIL" : "DEMO");
             response.put("success", true);
             response.put("message", "User retrieved successfully");
             response.put("data", user);
@@ -119,6 +120,7 @@ public class UserController {
         response.put("id", user != null ? user.getId() : null);
         response.put("googleId", user != null ? user.getGoogleId() : googleId);
         response.put("googleConnected", true);
+        response.put("mailboxMode", "REAL_GMAIL");
         response.put("success", true);
         response.put("message", "User retrieved successfully");
         response.put("data", user);

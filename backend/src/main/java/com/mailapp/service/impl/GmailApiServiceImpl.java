@@ -57,8 +57,7 @@ import java.util.Map;
  * Missing OAuth sessions and Gmail failures are returned as API errors rather
  * than being replaced with mock data.
  */
-@Service
-@Primary
+@Service("gmailApiService")
 public class GmailApiServiceImpl implements EmailService {
 
     private static final int MAX_RESULTS = 50;
@@ -75,25 +74,48 @@ public class GmailApiServiceImpl implements EmailService {
 
     /**
      * Builds a Gmail API client using the authenticated user's OAuth2 access token.
-     * Returns null if the current principal is not a Google OAuth2 user.
+     * Supports both Google OAuth2 sessions and email/password sessions with a linked Google account.
+     *
+     * Returns null if no Google OAuth tokens are available for the current user.
+     * Returns the Gmail service if tokens are found.
      */
     private Gmail getGmailService() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (!(authentication instanceof OAuth2AuthenticationToken oauthToken)) {
+        if (authentication == null || !authentication.isAuthenticated()) {
             return null;
         }
 
-        OAuth2AuthorizedClient client = authorizedClientService.loadAuthorizedClient(
-                oauthToken.getAuthorizedClientRegistrationId(),
-                oauthToken.getName());
+        String accessTokenValue = null;
 
-        if (client == null || client.getAccessToken() == null) {
+        // Path 1: User authenticated via Google OAuth — tokens are directly available
+        if (authentication instanceof OAuth2AuthenticationToken oauthToken) {
+            OAuth2AuthorizedClient client = authorizedClientService.loadAuthorizedClient(
+                    oauthToken.getAuthorizedClientRegistrationId(),
+                    oauthToken.getName());
+            if (client != null && client.getAccessToken() != null) {
+                accessTokenValue = client.getAccessToken().getTokenValue();
+            }
+        }
+
+        // Path 2: User authenticated via email/password with a linked Google account
+        // The InMemoryOAuth2AuthorizedClientService stores clients keyed by (registrationId, principalName)
+        // For Google, principalName is the Google sub claim (stored as googleId in our User entity)
+        if (accessTokenValue == null && authentication.getPrincipal() instanceof com.mailapp.entity.User user) {
+            if (user.getGoogleId() != null) {
+                OAuth2AuthorizedClient client = authorizedClientService.loadAuthorizedClient(
+                        "google", user.getGoogleId());
+                if (client != null && client.getAccessToken() != null) {
+                    accessTokenValue = client.getAccessToken().getTokenValue();
+                }
+            }
+        }
+
+        if (accessTokenValue == null) {
             return null;
         }
 
-        String accessToken = client.getAccessToken().getTokenValue();
         HttpRequestInitializer requestInitializer = request -> request.getHeaders()
-                .setAuthorization("Bearer " + accessToken);
+                .setAuthorization("Bearer " + accessTokenValue);
 
         try {
             return new Gmail.Builder(
@@ -107,13 +129,16 @@ public class GmailApiServiceImpl implements EmailService {
         }
     }
 
-    /** Returns the authenticated user's email address from the OAuth2 principal. */
+    /** Returns the authenticated user's email address from the principal. */
     private String getCurrentUserEmail() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication instanceof OAuth2AuthenticationToken oauthToken) {
             OAuth2User principal = oauthToken.getPrincipal();
             String email = principal.getAttribute("email");
             return email != null ? email : "me";
+        }
+        if (authentication.getPrincipal() instanceof com.mailapp.entity.User user) {
+            return user.getEmail() != null ? user.getEmail() : "me";
         }
         return "me";
     }
@@ -206,6 +231,10 @@ public class GmailApiServiceImpl implements EmailService {
     private Gmail requireGmailService() {
         Gmail service = getGmailService();
         if (service == null) {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof com.mailapp.entity.User user && user.getGoogleId() == null) {
+                throw new IllegalStateException("GOOGLE_NOT_CONNECTED");
+            }
             throw new IllegalStateException("No authenticated Gmail session is available");
         }
         return service;
@@ -277,8 +306,13 @@ public class GmailApiServiceImpl implements EmailService {
     @Override
     public List<EmailDto> getAllEmails() {
         Gmail service = getGmailService();
-        if (service == null)
+        if (service == null) {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof com.mailapp.entity.User user && user.getGoogleId() == null) {
+                throw new IllegalStateException("GOOGLE_NOT_CONNECTED");
+            }
             throw new IllegalStateException("No authenticated Gmail session is available");
+        }
         try {
             // Fetch across all labels — inbox + sent combined gives "All Mail" view
             List<EmailDto> inbox = fetchMessages(service, "INBOX", MAX_RESULTS / 2);
@@ -295,8 +329,13 @@ public class GmailApiServiceImpl implements EmailService {
     @Override
     public List<EmailDto> getInboxEmails() {
         Gmail service = getGmailService();
-        if (service == null)
+        if (service == null) {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof com.mailapp.entity.User user && user.getGoogleId() == null) {
+                throw new IllegalStateException("GOOGLE_NOT_CONNECTED");
+            }
             throw new IllegalStateException("No authenticated Gmail session is available");
+        }
         try {
             return fetchMessages(service, "INBOX", MAX_RESULTS);
         } catch (Exception e) {
@@ -307,8 +346,13 @@ public class GmailApiServiceImpl implements EmailService {
     @Override
     public List<EmailDto> getSentEmails() {
         Gmail service = getGmailService();
-        if (service == null)
+        if (service == null) {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof com.mailapp.entity.User user && user.getGoogleId() == null) {
+                throw new IllegalStateException("GOOGLE_NOT_CONNECTED");
+            }
             throw new IllegalStateException("No authenticated Gmail session is available");
+        }
         try {
             return fetchMessages(service, "SENT", MAX_RESULTS);
         } catch (Exception e) {
@@ -319,8 +363,13 @@ public class GmailApiServiceImpl implements EmailService {
     @Override
     public EmailDto getEmailById(String id) {
         Gmail service = getGmailService();
-        if (service == null)
+        if (service == null) {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof com.mailapp.entity.User user && user.getGoogleId() == null) {
+                throw new IllegalStateException("GOOGLE_NOT_CONNECTED");
+            }
             throw new IllegalStateException("No authenticated Gmail session is available");
+        }
         try {
             Message message = service.users().messages()
                     .get("me", id)

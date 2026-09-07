@@ -55,6 +55,7 @@ public class AuthController {
             data.put("email", saved.getEmail());
             data.put("displayName", saved.getName());
             data.put("googleConnected", saved.getGoogleId() != null);
+            data.put("mailboxMode", saved.getGoogleId() != null ? "REAL_GMAIL" : "DEMO");
 
             return ResponseEntity.ok(ApiResponse.ok("Registration successful", data));
         } catch (Exception e) {
@@ -110,6 +111,7 @@ public class AuthController {
             data.put("displayName", user.getName());
             data.put("profilePictureUrl", user.getProfilePictureUrl());
             data.put("googleConnected", user.getGoogleId() != null);
+            data.put("mailboxMode", user.getGoogleId() != null ? "REAL_GMAIL" : "DEMO");
 
             return ResponseEntity.ok(ApiResponse.ok("Login successful", data));
         } catch (Exception e) {
@@ -141,6 +143,7 @@ public class AuthController {
             data.put("displayName", user.getName());
             data.put("profilePictureUrl", user.getProfilePictureUrl());
             data.put("googleConnected", user.getGoogleId() != null);
+            data.put("mailboxMode", user.getGoogleId() != null ? "REAL_GMAIL" : "DEMO");
             return ResponseEntity.ok(ApiResponse.ok("User retrieved successfully", data));
         }
 
@@ -164,5 +167,36 @@ public class AuthController {
         }
 
         return ResponseEntity.ok(ApiResponse.error("Not authenticated"));
+    }
+
+    /**
+     * Initiates the "Connect Google" flow.
+     * Stores the current user's ID and authentication in the session so that
+     * after Google OAuth completes, the Google identity is linked to THIS user
+     * instead of creating a new user.
+     *
+     * Returns the Google OAuth URL for the frontend to redirect to.
+     */
+    @PostMapping("/connect-google")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> connectGoogle(
+            HttpServletRequest httpRequest) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || auth.getPrincipal() == null) {
+            return ResponseEntity.ok(ApiResponse.error("Not authenticated. Please login first."));
+        }
+
+        Object principal = auth.getPrincipal();
+
+        if (principal instanceof User user) {
+            HttpSession session = httpRequest.getSession(true);
+            session.setAttribute("connectUserId", user.getId());
+            session.setAttribute("originalAuthentication", auth);
+
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("url", "/oauth2/authorization/google");
+            return ResponseEntity.ok(ApiResponse.ok("Connect Google initiated", data));
+        }
+
+        return ResponseEntity.ok(ApiResponse.error("Not authenticated. Please login first."));
     }
 }

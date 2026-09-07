@@ -7,10 +7,10 @@ import com.mailapp.exception.AiException;
 import com.mailapp.service.GeminiClient;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -53,6 +53,36 @@ class AiServiceImplTest {
         var response = service.interpret(new AiCommandRequest("Reply to this", null));
 
         assertEquals("UNKNOWN", response.action().type());
+    }
+
+    @Test
+    void resolvesLatestEmailReference() {
+        when(geminiClient.generateAction(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn("{\"type\":\"OPEN_EMAIL\",\"payload\":{}}");
+
+        AiContext context = new AiContext(
+                "INBOX",
+                null,
+                new AiContext.EmailSummary("demo-latest-42", "sarah@nebula.io", "Latest Update", "Preview", "10:00 AM"),
+                List.of(),
+                "DEMO",
+                Map.of());
+
+        var response = service.interpret(new AiCommandRequest("Open the latest email", context));
+
+        assertEquals("OPEN_EMAIL", response.action().type());
+        assertEquals("demo-latest-42", response.action().payload().get("emailId"));
+    }
+
+    @Test
+    void convertsSummarizeWithoutSelectedEmailToUnknown() {
+        when(geminiClient.generateAction(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn("{\"type\":\"SUMMARIZE_EMAIL\",\"payload\":{}}");
+
+        var response = service.interpret(new AiCommandRequest("Summarize this email", null));
+
+        assertEquals("UNKNOWN", response.action().type());
+        assertTrue(response.action().payload().containsKey("reason"));
     }
 
     @Test

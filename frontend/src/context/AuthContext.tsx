@@ -11,7 +11,9 @@ interface AuthContextType {
   status: AuthStatus;
   statusMessage: string;
   googleConnected: boolean;
+  mailboxMode: 'REAL_GMAIL' | 'DEMO';
   loginWithOAuth: (provider: OAuthProvider) => void;
+  connectGoogle: () => Promise<void>;
   login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
   register: (email: string, password: string, displayName: string) => Promise<{ success: boolean; message: string }>;
   logout: () => Promise<void>;
@@ -49,6 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           tokenType: 'Bearer',
           scope: ['https://mail.google.com/', 'openid', 'profile', 'email'],
           googleConnected: userData.googleConnected ?? (userData.googleId != null),
+          mailboxMode: (userData.mailboxMode === 'REAL_GMAIL' || userData.googleConnected || userData.googleId != null) ? 'REAL_GMAIL' : 'DEMO',
         };
         setUser(profile);
         setGoogleConnected(profile.googleConnected ?? false);
@@ -83,6 +86,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }, 400);
     } else {
       setStatusMessage(`${provider} OAuth coming soon.`);
+    }
+  }, []);
+
+  const connectGoogle = useCallback(async () => {
+    try {
+      setStatus('connecting');
+      setStatusMessage('Connecting Google account...');
+      const res = await fetch(`${BACKEND_URL}/auth/connect-google`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const body = await res.json();
+      if (body.success && body.data?.url) {
+        window.location.href = `${BACKEND_URL}${body.data.url}`;
+      } else {
+        setStatus('authenticated');
+        setStatusMessage(body.message || 'Failed to start Google connection.');
+      }
+    } catch {
+      setStatus('authenticated');
+      setStatusMessage('Unable to connect to server.');
     }
   }, []);
 
@@ -153,7 +177,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       status,
       statusMessage,
       googleConnected,
+      mailboxMode: user?.mailboxMode || (googleConnected ? 'REAL_GMAIL' : 'DEMO'),
       loginWithOAuth,
+      connectGoogle,
       login,
       register,
       logout,

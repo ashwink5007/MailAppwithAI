@@ -13,6 +13,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -33,6 +34,12 @@ public class SecurityConfig {
 
     @Value("${frontend.url:http://localhost:3000}")
     private String frontendUrl;
+
+    private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
+
+    public SecurityConfig(OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler) {
+        this.oAuth2LoginSuccessHandler = oAuth2LoginSuccessHandler;
+    }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -56,9 +63,7 @@ public class SecurityConfig {
                         .authenticationEntryPoint(apiAuthenticationEntryPoint()))
 
                 .oauth2Login(oauth2 -> oauth2
-                        // After successful Google login, redirect back to the Next.js app.
-                        // The ?login=success param lets the frontend know to re-check the session.
-                        .defaultSuccessUrl(frontendUrl + "/?login=success", true))
+                        .successHandler(oAuth2LoginSuccessHandler))
 
                 // Spring Security's built-in logout endpoint: POST /logout
                 // Note: The frontend sends POST requests for logout (Spring Security 6+ default)

@@ -10,6 +10,7 @@ import com.mailapp.service.AiService;
 import com.mailapp.service.GeminiClient;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -18,45 +19,51 @@ public class AiServiceImpl implements AiService {
 
     private static final Set<String> SUPPORTED_ACTIONS = Set.of(
             "OPEN_COMPOSE", "FILL_COMPOSE", "SEARCH_EMAILS", "FILTER_EMAILS",
-            "OPEN_EMAIL", "PREPARE_REPLY", "NAVIGATE", "UNKNOWN");
-    private static final Set<String> SUPPORTED_VIEWS = Set.of("INBOX", "SENT", "COMPOSE", "EMAIL_DETAIL");
+            "OPEN_EMAIL", "PREPARE_REPLY", "NAVIGATE", "MARK_READ", "MARK_UNREAD",
+            "STAR_EMAIL", "UNSTAR_EMAIL", "MOVE_EMAIL", "DELETE_EMAIL", "SUMMARIZE_EMAIL", "UNKNOWN");
+
+    private static final Set<String> SUPPORTED_VIEWS = Set.of(
+            "INBOX", "SENT", "COMPOSE", "EMAIL_DETAIL", "DRAFTS", "STARRED", "IMPORTANT", "SPAM", "TRASH");
+
     private static final Set<String> SUPPORTED_DATE_RANGES = Set.of(
             "TODAY", "YESTERDAY", "LAST_7_DAYS", "LAST_10_DAYS", "THIS_WEEK",
             "LAST_WEEK", "THIS_MONTH");
 
     private static final String SYSTEM_INSTRUCTION = """
-            You are an advanced AI Copilot for an email application.
-            Your job is to understand natural human language and map the user's request to exactly one structured action.
-            You do not execute actions yourself. You only determine intent and extract relevant parameters.
+            You are an expert AI Copilot for NebulaMail, an intelligent email workspace.
+            Your job is to understand natural human language semantically (including synonyms, polite requests, conversational phrasing, and implicit intent) and map the user's intent to exactly one executable structured action.
             
-            Return ONLY valid JSON with this shape: {"type":"ACTION_TYPE","payload":{}}
-            
-            Supported actions:
-            - OPEN_COMPOSE: User wants to write a new email. Payload: {}
-            - FILL_COMPOSE: User provides details (to, subject, body) to draft a new email. Payload: {"to":"...","subject":"...","body":"..."}
-            - SEARCH_EMAILS: User wants to search by a generic query. Payload: {"query":"..."} or {"keyword":"..."}
-            - FILTER_EMAILS: User asks to see emails from someone, with a keyword, or in a date range. Payload: {"unread":true,"sender":"...","keyword":"...","dateRange":"..."}
-            - OPEN_EMAIL: User wants to open a specific email. Payload: {"emailId":"..."} or {"sender":"...","keyword":"..."}
-            - PREPARE_REPLY: User wants to reply to the currently selected email. Return UNKNOWN if none is selected.
-            - NAVIGATE: User wants to go to INBOX, SENT, or COMPOSE. Payload: {"view":"INBOX"} or {"view":"SENT"} or {"view":"COMPOSE"}
-            - UNKNOWN: Request is ambiguous, conversational but unactionable, or unsupported. Payload: {"reason":"..."}
-            
-            For FILTER_EMAILS, use the key "unread" (not "isUnread") when filtering unread emails.
-            
-            Supported navigation views: INBOX, SENT, COMPOSE.
-            Supported date ranges: TODAY, YESTERDAY, LAST_7_DAYS, LAST_10_DAYS, THIS_WEEK, LAST_WEEK, THIS_MONTH.
-            
-            Examples of natural language mapping:
-            - "Draft a quick response to this" -> {"type":"PREPARE_REPLY","payload":{}}
-            - "Show me emails from Alice" -> {"type":"FILTER_EMAILS","payload":{"sender":"Alice"}}
-            - "What did my boss say last week?" -> {"type":"FILTER_EMAILS","payload":{"dateRange":"LAST_WEEK"}}
-            - "Show unread emails from this week" -> {"type":"FILTER_EMAILS","payload":{"unread":true,"dateRange":"THIS_WEEK"}}
-            - "Let's write a new email to Bob" -> {"type":"FILL_COMPOSE","payload":{"to":"Bob"}}
-            - "Go to my sent folder" -> {"type":"NAVIGATE","payload":{"view":"SENT"}}
-            - "Archive promotional emails" -> {"type":"FILTER_EMAILS","payload":{"keyword":"promotions"}}
-            - "Hello AI!" -> {"type":"UNKNOWN","payload":{"reason":"I can help you manage your emails. What would you like to do?"}}
-            
-            Never invent email IDs or addresses if not provided. Always extract the most logical intent from conversational language.
+            CRITICAL RULES:
+            1. Return ONLY pure valid JSON without markdown formatting or conversational text:
+               {"type": "ACTION_TYPE", "payload": {}}
+            2. Never invent email IDs, recipients, or email contents that are not in the user request or application context.
+            3. Context Reference Resolution:
+               - If the user refers to "this email", "that message", "the email I'm reading", or "reply to this/him/her", you MUST use the currently selected email from context (selectedEmail). If selectedEmail is null or missing, return UNKNOWN explaining that no email is currently open or selected.
+               - If the user refers to "the latest email", "the latest one", or "most recent message", use latestEmail from context (or the first email in visibleEmails). If not available, return UNKNOWN.
+               - If the user asks ambiguous commands like "open it", "reply to him", or "delete that" with no selected email and no unambiguous target, return UNKNOWN. Never guess!
+            4. Support the following action types:
+               - OPEN_COMPOSE: User wants to compose/write/start a new email without details. Payload: {}
+               - FILL_COMPOSE: User wants to compose an email with details (to, subject, body). Payload: {"to":"...", "subject":"...", "body":"..."} (only include fields provided by the user).
+               - SEARCH_EMAILS: User wants to search emails by query keyword or phrase (e.g. "search invoices", "find John's messages", "find emails about roadmap"). Payload: {"query": "..."}
+               - FILTER_EMAILS: User wants to filter the email list (e.g. unread emails, from a sender, or in a date range).
+                 Payload: {"unread": true/false, "sender": "...", "keyword": "...", "dateRange": "..."}
+                 Use "unread": true when user asks for unread messages ("what haven't I read?", "show unread mail").
+                 Supported dateRange values: TODAY, YESTERDAY, THIS_WEEK, LAST_WEEK, THIS_MONTH, LAST_7_DAYS, LAST_10_DAYS.
+               - OPEN_EMAIL: User wants to open or read a specific email (e.g. "open the latest email", "show me that email", "open email from Sarah").
+                 Payload: {"emailId": "..."} if known from context, or {"sender": "...", "keyword": "..."}.
+               - PREPARE_REPLY: User wants to reply to the currently open/selected email.
+                 Payload: {"emailId": "..."}. Return UNKNOWN if selectedEmail is null.
+               - SUMMARIZE_EMAIL: User wants a summary of the currently selected email ("summarize this", "give me the key points").
+                 Payload: {"emailId": "..."}. Return UNKNOWN if selectedEmail is null.
+               - MARK_READ: User wants to mark an email as read ("mark this as read", "mark as read"). Payload: {"emailId": "..."}
+               - MARK_UNREAD: User wants to mark an email as unread ("mark this unread"). Payload: {"emailId": "..."}
+               - STAR_EMAIL: User wants to star the email ("star this email", "favorite this"). Payload: {"emailId": "..."}
+               - UNSTAR_EMAIL: User wants to unstar the email ("unstar this email"). Payload: {"emailId": "..."}
+               - DELETE_EMAIL: User wants to delete/trash the email ("delete this email", "move this to trash"). Payload: {"emailId": "..."}. Return UNKNOWN if selectedEmail is null.
+               - NAVIGATE: User wants to switch folders (inbox, sent, drafts, starred, important, spam, trash).
+                 Payload: {"view": "INBOX" | "SENT" | "DRAFTS" | "STARRED" | "IMPORTANT" | "SPAM" | "TRASH" | "COMPOSE"}
+               - UNKNOWN: The request is ambiguous, conversational without an action, or missing required context.
+                 Payload: {"reason": "Friendly explanation or clarification question"}
             """;
 
     private final GeminiClient geminiClient;
@@ -73,11 +80,11 @@ public class AiServiceImpl implements AiService {
             throw new IllegalArgumentException("Message is required");
         }
 
-        AiContext context = request.context() == null ? new AiContext("INBOX", null, Map.of()) : request.context().normalized();
+        AiContext context = request.context() == null ? new AiContext("INBOX", null, Map.of()).normalized() : request.context().normalized();
         String prompt = buildPrompt(request.message().trim(), context);
         String rawResponse = geminiClient.generateAction(SYSTEM_INSTRUCTION, prompt);
         AiAction action = parseAction(rawResponse);
-        return new AiCommandResponse(validateAction(action, context));
+        return new AiCommandResponse(validateAction(action, context, request.message().trim()));
     }
 
     private String buildPrompt(String message, AiContext context) {
@@ -92,7 +99,6 @@ public class AiServiceImpl implements AiService {
     private AiAction parseAction(String rawResponse) {
         try {
             String json = rawResponse.trim();
-            // Strip markdown code fences if present (```json ... ``` or ``` ... ```)
             if (json.startsWith("```")) {
                 json = json.replaceFirst("^```(?:json)?\\s*", "").replaceFirst("\\s*```$", "").trim();
             }
@@ -103,18 +109,57 @@ public class AiServiceImpl implements AiService {
         }
     }
 
-    private AiAction validateAction(AiAction action, AiContext context) {
+    private AiAction validateAction(AiAction action, AiContext context, String userMessage) {
         if (!SUPPORTED_ACTIONS.contains(action.type())) {
             throw new AiException("Gemini returned an unsupported action");
         }
 
-        Map<String, Object> payload = action.payload();
+        Map<String, Object> payload = new HashMap<>(action.payload() != null ? action.payload() : Map.of());
+        String lowerMsg = userMessage.toLowerCase();
+
+        // Check reference resolution for actions targeting the selected email
         if ("PREPARE_REPLY".equals(action.type())) {
-            if (context.selectedEmail() == null || context.selectedEmail().id() == null
-                    || context.selectedEmail().id().isBlank()) {
-                return new AiAction("UNKNOWN", Map.of("reason", "No email is currently open"));
+            if (context.selectedEmail() == null || context.selectedEmail().id() == null || context.selectedEmail().id().isBlank()) {
+                return new AiAction("UNKNOWN", Map.of("reason", "No email is currently open. Please open an email first to draft a reply."));
             }
-            return new AiAction("PREPARE_REPLY", Map.of("emailId", context.selectedEmail().id()));
+            payload.put("emailId", context.selectedEmail().id());
+            return new AiAction("PREPARE_REPLY", payload);
+        }
+
+        if ("SUMMARIZE_EMAIL".equals(action.type())) {
+            if (context.selectedEmail() == null || context.selectedEmail().id() == null || context.selectedEmail().id().isBlank()) {
+                return new AiAction("UNKNOWN", Map.of("reason", "No email is currently selected. Please select an email first to summarize it."));
+            }
+            payload.put("emailId", context.selectedEmail().id());
+            return new AiAction("SUMMARIZE_EMAIL", payload);
+        }
+
+        if ("DELETE_EMAIL".equals(action.type())) {
+            if (payload.get("emailId") == null || String.valueOf(payload.get("emailId")).isBlank()) {
+                if (context.selectedEmail() != null && context.selectedEmail().id() != null) {
+                    payload.put("emailId", context.selectedEmail().id());
+                } else {
+                    return new AiAction("UNKNOWN", Map.of("reason", "No email is currently selected to delete. Please select an email first."));
+                }
+            }
+            return new AiAction("DELETE_EMAIL", payload);
+        }
+
+        if ("OPEN_EMAIL".equals(action.type())) {
+            // Check if user specifically requested "latest" / "most recent"
+            if ((lowerMsg.contains("latest") || lowerMsg.contains("most recent") || lowerMsg.contains("newest"))
+                    && context.latestEmail() != null) {
+                payload.put("emailId", context.latestEmail().id());
+            } else if (lowerMsg.contains("this") || lowerMsg.contains("that")) {
+                if (context.selectedEmail() != null && context.selectedEmail().id() != null) {
+                    payload.put("emailId", context.selectedEmail().id());
+                } else if (context.latestEmail() != null) {
+                    payload.put("emailId", context.latestEmail().id());
+                } else {
+                    return new AiAction("UNKNOWN", Map.of("reason", "Which email would you like to open? You can specify a sender or search keyword."));
+                }
+            }
+            return new AiAction("OPEN_EMAIL", payload);
         }
 
         if ("NAVIGATE".equals(action.type())) {
@@ -131,7 +176,7 @@ public class AiServiceImpl implements AiService {
             }
         }
 
-        return action;
+        return new AiAction(action.type(), payload);
     }
 
     private String stringValue(Object value) {

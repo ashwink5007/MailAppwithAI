@@ -23,7 +23,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onToggleMobileSidebar }) => {
-  const { searchQuery, setSearchQuery, unreadCount } = useEmail();
+  const { searchQuery, setSearchQuery, unreadCount, mailboxMode } = useEmail();
   const { isOpen: isAIOpen, toggleOpen: toggleAI, status: aiStatus } = useAICopilot();
   const { user, logout } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
@@ -51,6 +51,12 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileSidebar }) => {
               <span className="text-[10px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
                 Copilot
               </span>
+              {mailboxMode === 'DEMO' && (
+                <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300 flex items-center gap-1 shadow-2xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  Demo Mode
+                </span>
+              )}
             </div>
             <p className="text-[11px] text-slate-500 hidden sm:block">Intelligent Workspace</p>
           </div>

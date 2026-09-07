@@ -7,6 +7,7 @@ import { EmailList } from '../email/EmailList';
 import { EmailDetail } from '../email/EmailDetail';
 import { AssistantPanel } from '../ai/AssistantPanel';
 import { ComposeEmail } from '../email/ComposeEmail';
+import { MailCopilotTools } from '../ai/MailCopilotTools';
 import { useAICopilot } from '../../context/AICopilotContext';
 
 export const MainLayout: React.FC = () => {
@@ -95,6 +96,7 @@ export const MainLayout: React.FC = () => {
 
       {/* Floating Compose Modal */}
       <ComposeEmail />
+      <MailCopilotTools />
     </div>
   );
 };

@@ -50,6 +50,19 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("Invalid request"));
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalState(IllegalStateException ex) {
+        String message = ex.getMessage();
+        if ("GOOGLE_NOT_CONNECTED".equals(message)) {
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error("GOOGLE_NOT_CONNECTED"));
+        }
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error(message != null ? message : "Server error"));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGeneral(Exception ex) {
         String rootMessage = ex.getMessage();

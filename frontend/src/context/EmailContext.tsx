@@ -27,6 +27,7 @@ interface EmailContextType {
   filterTab: EmailFilterTab;
   isComposeOpen: boolean;
   composeData: ComposeData | null;
+  mailboxMode: 'REAL_GMAIL' | 'DEMO';
   // Loading / error states for backend integration
   isLoading: boolean;
   isError: boolean;
@@ -60,7 +61,7 @@ interface EmailContextType {
 const EmailContext = createContext<EmailContextType | undefined>(undefined);
 
 export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user, googleConnected, mailboxMode } = useAuth();
 
   const userEmail = user?.email || 'user@gmail.com';
   const userName = user?.name || 'User';
@@ -80,7 +81,7 @@ export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [retryCounter, setRetryCounter] = useState<number>(0);
 
-  // Load emails from the backend whenever the user is authenticated
+  // Load emails from the backend whenever the user is authenticated AND Google is connected
   useEffect(() => {
     let cancelled = false;
 
@@ -99,11 +100,12 @@ export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       } catch (err) {
         if (!cancelled) {
           setIsError(true);
-          setErrorMessage(
-            err instanceof Error
-              ? err.message
-              : 'Unable to load emails. Please check if the backend is running.'
-          );
+          const msg = err instanceof Error ? err.message : 'Unable to load emails.';
+          if (msg.includes('GOOGLE_NOT_CONNECTED')) {
+            setErrorMessage('GOOGLE_NOT_CONNECTED');
+          } else {
+            setErrorMessage(msg);
+          }
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -113,15 +115,14 @@ export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (user) {
       loadEmails();
     } else {
-      // Clear mailbox state when the authenticated user changes.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      // Clear mailbox state when no authenticated user is present.
       setEmails([]);
       setIsLoading(false);
     }
 
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userEmail, userName, retryCounter]);
+  }, [userEmail, userName, retryCounter, googleConnected, mailboxMode]);
 
   const retryLoad = useCallback(() => {
     setRetryCounter(prev => prev + 1);
@@ -361,6 +362,7 @@ export const EmailProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     <EmailContext.Provider
       value={{
         emails,
+        mailboxMode: mailboxMode || (googleConnected ? 'REAL_GMAIL' : 'DEMO'),
         activeFolder,
         activeLabel,
         selectedEmailId,

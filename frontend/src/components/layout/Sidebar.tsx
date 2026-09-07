@@ -57,7 +57,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
     activeLabel,
     setActiveLabel,
     folderCounts,
-    openCompose
+    openCompose,
+    mailboxMode
   } = useEmail();
 
   const { user } = useAuth();
@@ -85,8 +86,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
             {user?.name?.charAt(0) || 'G'}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1">
-              <span className="text-xs font-bold text-slate-900 truncate">{user?.name || 'Gmail User'}</span>
+            <div className="flex items-center gap-1 justify-between">
+              <span className="text-xs font-bold text-slate-900 truncate">{user?.name || 'User'}</span>
+              {mailboxMode === 'DEMO' ? (
+                <span className="text-[9px] font-bold tracking-wider uppercase px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-300">
+                  Demo
+                </span>
+              ) : (
+                <span className="text-[9px] font-bold tracking-wider uppercase px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  Gmail
+                </span>
+              )}
             </div>
             <p className="text-[10px] text-blue-600 font-bold truncate">{user?.email || ''}</p>
           </div>
