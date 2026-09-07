@@ -24,33 +24,58 @@ public class BackendApplication implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
+        // Check RAW env vars via System.getenv (not Spring-resolved properties)
+        // This tells us whether the vars are actually set on the platform
+        String rawDbUrl = System.getenv("DATABASE_URL");
+        String rawDbUser = System.getenv("DATABASE_USERNAME");
+        String rawDbPass = System.getenv("DATABASE_PASSWORD");
+        String rawGoogleId = System.getenv("GOOGLE_CLIENT_ID");
+        String rawGoogleSecret = System.getenv("GOOGLE_CLIENT_SECRET");
+        String rawFrontendUrl = System.getenv("FRONTEND_URL");
+
+        // Spring-resolved values (may include defaults)
         String clientId = env.getProperty("spring.security.oauth2.client.registration.google.client-id");
         String clientSecret = env.getProperty("spring.security.oauth2.client.registration.google.client-secret");
-        String frontendUrl = env.getProperty("frontend.url", "NOT SET");
-        String dbUrl = env.getProperty("spring.datasource.url", "NOT SET");
+        String resolvedDbUrl = env.getProperty("spring.datasource.url", "NOT SET");
 
-        log.info("========================================");
-        log.info("  OAUTH2 CONFIGURATION DIAGNOSTIC");
-        log.info("========================================");
-        log.info("  GOOGLE_CLIENT_ID resolved: {}", clientId == null || clientId.isBlank() ? "MISSING / EMPTY" : "PRESENT (length=" + clientId.length() + ")");
-        log.info("  GOOGLE_CLIENT_SECRET resolved: {}", clientSecret == null || clientSecret.isBlank() ? "MISSING / EMPTY" : "PRESENT (length=" + clientSecret.length() + ")");
-        log.info("  FRONTEND_URL: {}", frontendUrl);
-        log.info("  DATABASE_URL resolved: {}", dbUrl == null || dbUrl.isBlank() ? "MISSING / EMPTY" : "PRESENT");
-        log.info("  forward-headers-strategy: native");
-        log.info("========================================");
+        log.info("============================================");
+        log.info("  STARTUP ENVIRONMENT DIAGNOSTIC");
+        log.info("============================================");
+        log.info("  RAW env vars (from platform):");
+        log.info("    DATABASE_URL      : {}", rawDbUrl != null && !rawDbUrl.isBlank() ? "SET (length=" + rawDbUrl.length() + ")" : "NOT SET");
+        log.info("    DATABASE_USERNAME  : {}", rawDbUser != null && !rawDbUser.isBlank() ? "SET" : "NOT SET");
+        log.info("    DATABASE_PASSWORD  : {}", rawDbPass != null && !rawDbPass.isBlank() ? "SET" : "NOT SET");
+        log.info("    GOOGLE_CLIENT_ID   : {}", rawGoogleId != null && !rawGoogleId.isBlank() ? "SET (length=" + rawGoogleId.length() + ")" : "NOT SET");
+        log.info("    GOOGLE_CLIENT_SECRET: {}", rawGoogleSecret != null && !rawGoogleSecret.isBlank() ? "SET (length=" + rawGoogleSecret.length() + ")" : "NOT SET");
+        log.info("    FRONTEND_URL       : {}", rawFrontendUrl != null && !rawFrontendUrl.isBlank() ? rawFrontendUrl : "NOT SET");
+        log.info("  Spring-resolved properties:");
+        log.info("    datasource.url     : {}", resolvedDbUrl);
+        log.info("    google.client-id   : {}", clientId == null || clientId.isBlank() ? "MISSING" : "PRESENT (length=" + clientId.length() + ")");
+        log.info("    google.client-secret: {}", clientSecret == null || clientSecret.isBlank() ? "MISSING" : "PRESENT (length=" + clientSecret.length() + ")");
+        log.info("============================================");
 
-        if (clientId == null || clientId.isBlank()) {
-            log.error("CRITICAL: GOOGLE_CLIENT_ID is not set! OAuth will fail with 'invalid_client'.");
-            log.error("Set GOOGLE_CLIENT_ID as an environment variable in Railway dashboard.");
+        // Critical checks
+        if (rawDbUrl == null || rawDbUrl.isBlank()) {
+            log.error("CRITICAL: DATABASE_URL env var is NOT SET on this platform!");
+            log.error("The app is using the default: jdbc:postgresql://localhost:5432/postgres");
+            log.error("Set DATABASE_URL, DATABASE_USERNAME, DATABASE_PASSWORD in Railway dashboard.");
+            log.error("For Supabase: jdbc:postgresql://aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=require");
+        } else if (rawDbUrl.contains("localhost")) {
+            log.error("CRITICAL: DATABASE_URL points to localhost — this will NOT work on Railway/production!");
+            log.error("Set DATABASE_URL to your Supabase connection string in Railway dashboard.");
         }
-        if (clientSecret == null || clientSecret.isBlank()) {
-            log.error("CRITICAL: GOOGLE_CLIENT_SECRET is not set! OAuth will fail with 'invalid_client'.");
-            log.error("Set GOOGLE_CLIENT_SECRET as an environment variable in Railway dashboard.");
+        if (rawGoogleId == null || rawGoogleId.isBlank()) {
+            log.error("CRITICAL: GOOGLE_CLIENT_ID env var is NOT SET! OAuth will fail with 'invalid_client'.");
         }
-        if (clientId != null && !clientId.isBlank() && clientId.endsWith(".apps.googleusercontent.com")) {
-            log.info("  Client ID format looks valid (ends with .apps.googleusercontent.com)");
-        } else if (clientId != null && !clientId.isBlank()) {
-            log.warn("  WARNING: Client ID does NOT end with .apps.googleusercontent.com — may be wrong value!");
+        if (rawGoogleSecret == null || rawGoogleSecret.isBlank()) {
+            log.error("CRITICAL: GOOGLE_CLIENT_SECRET env var is NOT SET! OAuth will fail with 'invalid_client'.");
+        }
+        if (rawFrontendUrl == null || rawFrontendUrl.isBlank()) {
+            log.error("CRITICAL: FRONTEND_URL env var is NOT SET! Post-login redirect will go to localhost.");
+            log.error("Set FRONTEND_URL=https://nebulamail.vercel.app in Railway dashboard.");
+        }
+        if (clientId != null && clientId.endsWith(".apps.googleusercontent.com")) {
+            log.info("  Google Client ID format: looks valid");
         }
     }
 }
