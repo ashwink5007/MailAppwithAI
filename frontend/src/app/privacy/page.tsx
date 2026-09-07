@@ -69,10 +69,10 @@ export default function PrivacyPolicy() {
             <p className="text-slate-600 leading-relaxed mt-2">
               Contact:{" "}
               <a
-                href="mailto:[REPLACE WITH YOUR SUPPORT EMAIL]"
+                href="mailto:tylerdurdan969@gmail.com"
                 className="text-blue-600 hover:underline"
               >
-                [REPLACE WITH YOUR SUPPORT EMAIL]
+                tylerdurdan969@gmail.com
               </a>
             </p>
           </section>
@@ -420,10 +420,10 @@ export default function PrivacyPolicy() {
               their account data. If you require deletion of your data,
               please contact us at{" "}
               <a
-                href="mailto:[REPLACE WITH YOUR SUPPORT EMAIL]"
+                href="mailto:tylerdurdan969@gmail.com"
                 className="text-blue-600 hover:underline"
               >
-                [REPLACE WITH YOUR SUPPORT EMAIL]
+                tylerdurdan969@gmail.com
               </a>{" "}
               and we will process your request.
             </p>
@@ -541,10 +541,10 @@ export default function PrivacyPolicy() {
               If you have questions about this Privacy Policy, please
               contact us at:{" "}
               <a
-                href="mailto:[REPLACE WITH YOUR SUPPORT EMAIL]"
+                href="mailto:tylerdurdan969@gmail.com"
                 className="text-blue-600 hover:underline"
               >
-                [REPLACE WITH YOUR SUPPORT EMAIL]
+                tylerdurdan969@gmail.com
               </a>
             </p>
           </section>

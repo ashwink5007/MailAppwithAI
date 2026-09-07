@@ -374,7 +374,7 @@ export default function TermsOfService() {
             </h2>
             <p className="text-slate-600 leading-relaxed">
               These Terms shall be governed by and construed in accordance
-              with the laws of [REPLACE WITH YOUR JURISDICTION], without
+              with the laws of the State of California, USA, without
               regard to its conflict of law provisions.
             </p>
           </section>
@@ -388,10 +388,10 @@ export default function TermsOfService() {
               If you have questions about these Terms of Service, please
               contact us at:{" "}
               <a
-                href="mailto:[REPLACE WITH YOUR SUPPORT EMAIL]"
+                href="mailto:tylerdurdan969@gmail.com"
                 className="text-blue-600 hover:underline"
               >
-                [REPLACE WITH YOUR SUPPORT EMAIL]
+                tylerdurdan969@gmail.com
               </a>
             </p>
           </section>
