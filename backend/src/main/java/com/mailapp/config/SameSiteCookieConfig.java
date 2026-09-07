@@ -4,32 +4,34 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletResponseWrapper;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Collection;
 
 /**
  * Ensures every Set-Cookie header includes SameSite=None.
  *
- * The Spring Boot property {@code server.servlet.session.cookie.same-site=none}
- * does NOT work reliably with embedded Tomcat.  Without an explicit SameSite
- * attribute, the browser treats cookies as SameSite=Lax, which breaks the
- * OAuth2 flow across domains (Vercel → Railway): the JSESSIONID is dropped
- * when the user returns from Google's consent screen, causing a 400 error
- * because the OAuth2AuthorizationRequest is missing from the session.
+ * CRITICAL ORDERING: This filter MUST run BEFORE Spring Security's
+ * FilterChainProxy (order -100). If it runs after, Spring Security
+ * sets the JSESSIONID cookie on the original (unwrapped) response
+ * before our wrapper intercepts it, and the cookie is sent without
+ * SameSite=None. The browser then defaults to SameSite=Lax, which
+ * blocks the cookie on cross-origin fetch requests from Vercel to
+ * Railway, causing the frontend to never recognize the session.
  *
- * This filter rewrites Set-Cookie headers to add SameSite=None for any cookie
- * that does not already specify a SameSite attribute.
+ * Registered via FilterRegistrationBean with HIGHEST_PRECEDENCE + 100
+ * to guarantee execution before Spring Security.
  */
 @Configuration
 public class SameSiteCookieConfig {
 
     @Bean
-    public OncePerRequestFilter sameSiteFilter() {
-        return new OncePerRequestFilter() {
+    public FilterRegistrationBean<jakarta.servlet.Filter> sameSiteFilterRegistration() {
+        jakarta.servlet.Filter filter = new OncePerRequestFilter() {
             @Override
             protected void doFilterInternal(
                     jakarta.servlet.http.HttpServletRequest request,
@@ -62,5 +64,11 @@ public class SameSiteCookieConfig {
                 filterChain.doFilter(request, wrappedResponse);
             }
         };
+
+        FilterRegistrationBean<jakarta.servlet.Filter> registration = new FilterRegistrationBean<>();
+        registration.setFilter(filter);
+        registration.addUrlPatterns("/*");
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 100);
+        return registration;
     }
 }
