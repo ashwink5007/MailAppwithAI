@@ -56,7 +56,7 @@ export const AssistantPanel: React.FC = () => {
   };
 
   return (
-    <aside className="w-80 md:w-96 h-full bg-slate-50/90 border-l border-slate-200 flex flex-col shrink-0 z-20 shadow-xl backdrop-blur-xl">
+    <aside className="w-full h-full bg-slate-50/90 border-l border-slate-200 flex flex-col shrink-0 z-20 shadow-xl backdrop-blur-xl min-w-0">
       {/* Panel Header */}
       <div className="h-14 px-4 border-b border-slate-200 flex items-center justify-between bg-white shrink-0 shadow-xs">
         <div className="flex items-center gap-2.5">
@@ -188,7 +188,7 @@ export const AssistantPanel: React.FC = () => {
                       )}
                     </button>
                   </div>
-                  <div className="text-[11px] text-slate-800 font-mono bg-white p-2.5 rounded-lg border border-slate-200 whitespace-pre-wrap">
+                  <div className="text-[11px] text-slate-800 font-mono bg-white p-2.5 rounded-lg border border-slate-200 whitespace-pre-wrap break-words">
                     {msg.suggestedReply.body}
                   </div>
                   <button

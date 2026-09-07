@@ -50,21 +50,21 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-blue-50 via-white to-sky-100/70 flex flex-col justify-between text-slate-800 relative overflow-hidden font-sans select-none">
+    <div className="min-h-dvh w-full bg-gradient-to-br from-blue-50 via-white to-sky-100/70 flex flex-col justify-between text-slate-800 relative overflow-y-auto overflow-x-hidden font-sans select-none">
       {/* Background glows */}
       <div className="absolute -top-32 -left-32 w-96 h-96 bg-blue-400/20 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute top-1/3 -right-32 w-96 h-96 bg-sky-300/25 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-32 left-1/3 w-96 h-96 bg-indigo-300/20 rounded-full blur-3xl pointer-events-none" />
 
       {/* Top Header */}
-      <header className="px-6 py-5 flex items-center justify-between z-10">
-        <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-500 flex items-center justify-center shadow-lg shadow-blue-500/30 ring-2 ring-white">
+      <header className="px-4 sm:px-6 py-4 sm:py-5 flex items-center justify-between gap-2 z-10">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-500 flex items-center justify-center shadow-lg shadow-blue-500/30 ring-2 ring-white shrink-0">
             <Sparkles className="w-5 h-5 text-white" />
           </div>
-          <div>
-            <span className="font-bold text-lg tracking-tight text-slate-900">NebulaMail</span>
-            <span className="ml-2 text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
+          <div className="min-w-0">
+            <span className="font-bold text-base sm:text-lg tracking-tight text-slate-900 truncate">NebulaMail</span>
+            <span className="ml-2 text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 whitespace-nowrap">
               Copilot 2.0
             </span>
           </div>
@@ -77,8 +77,8 @@ export const LoginPage: React.FC = () => {
       </header>
 
       {/* Center Auth Card */}
-      <main className="flex-1 flex items-center justify-center p-4 z-10">
-        <div className="w-full max-w-md bg-white/95 backdrop-blur-xl border border-blue-100 rounded-3xl p-8 sm:p-10 shadow-2xl shadow-blue-500/10 relative">
+      <main className="flex-1 flex items-center justify-center p-4 z-10 w-full">
+        <div className="w-full max-w-md bg-white/95 backdrop-blur-xl border border-blue-100 rounded-3xl p-6 sm:p-10 shadow-2xl shadow-blue-500/10 relative">
 
           {/* Card Header */}
           <div className="text-center mb-8">
@@ -135,7 +135,7 @@ export const LoginPage: React.FC = () => {
             </div>
 
             {error && (
-              <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
+              <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 break-words">{error}</p>
             )}
 
             <button

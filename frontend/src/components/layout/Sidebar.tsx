@@ -78,7 +78,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
   };
 
   return (
-    <aside className="w-60 h-full bg-slate-50/90 border-r border-slate-200 flex flex-col shrink-0 select-none overflow-y-auto">
+    <aside className="w-full h-full bg-slate-50/90 border-r border-slate-200 flex flex-col shrink-0 select-none overflow-y-auto">
       {/* Connected User Account Card */}
       <div className="p-3 pb-0">
         <div className="p-2.5 bg-white border border-slate-200/90 rounded-2xl flex items-center gap-2.5 shadow-2xs">
@@ -131,7 +131,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
             <button
               key={folder.id}
               onClick={() => handleFolderClick(folder.id)}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all ${isActive
+              className={`w-full flex items-center justify-between px-3 py-2.5 md:py-2 rounded-xl text-xs font-semibold transition-all ${isActive
                   ? 'bg-blue-100 text-blue-700 shadow-xs'
                   : 'text-slate-600 hover:bg-slate-200/60 hover:text-slate-900'
                 }`}
@@ -168,7 +168,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
             <button
               key={label.name}
               onClick={() => handleLabelClick(label.name)}
-              className={`w-full flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${isSelected
+              className={`w-full flex items-center justify-between px-3 py-2 md:py-1.5 rounded-xl text-xs font-medium transition-all ${isSelected
                   ? 'bg-white text-blue-700 shadow-sm border border-slate-200 font-semibold'
                   : 'text-slate-600 hover:bg-slate-200/50 hover:text-slate-900'
                 }`}

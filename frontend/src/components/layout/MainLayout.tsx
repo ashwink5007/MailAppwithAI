@@ -25,14 +25,14 @@ export const MainLayout: React.FC = () => {
   };
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-slate-50 text-slate-900 overflow-hidden select-none font-sans">
+    <div className="h-dvh w-screen flex flex-col bg-slate-50 text-slate-900 overflow-hidden select-none font-sans">
       {/* Top Application Header */}
       <Header onToggleMobileSidebar={() => setMobileSidebarOpen(prev => !prev)} />
 
       {/* Main Workspace Body */}
       <div className="flex-1 flex min-h-0 relative overflow-hidden">
-        {/* Desktop Sidebar */}
-        <div className="hidden md:flex h-full">
+        {/* Desktop / Tablet Sidebar (fixed responsive width; panel fills it) */}
+        <div className="hidden md:block md:w-56 lg:w-60 h-full shrink-0">
           <Sidebar />
         </div>
 
@@ -53,7 +53,7 @@ export const MainLayout: React.FC = () => {
         <main className="flex-1 flex min-w-0 h-full overflow-hidden bg-white">
           {/* Desktop & Tablet View: List and Detail Side by Side */}
           <div className="hidden md:flex flex-1 min-w-0 h-full">
-            <div className="w-[360px] lg:w-[400px] shrink-0 h-full border-r border-slate-200">
+            <div className="w-72 lg:w-[360px] xl:w-[400px] shrink-0 h-full border-r border-slate-200 min-w-0">
               <EmailList />
             </div>
             <div className="flex-1 min-w-0 h-full">
@@ -75,8 +75,8 @@ export const MainLayout: React.FC = () => {
           </div>
         </main>
 
-        {/* Desktop AI Copilot Panel */}
-        <div className="hidden xl:flex h-full border-l border-slate-200">
+        {/* Desktop AI Copilot Panel (fixed responsive width; panel fills it) */}
+        <div className="hidden xl:block xl:w-96 h-full shrink-0">
           <AssistantPanel />
         </div>
 

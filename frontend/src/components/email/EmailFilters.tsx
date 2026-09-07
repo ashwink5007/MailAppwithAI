@@ -42,21 +42,21 @@ export const EmailFilters: React.FC = () => {
   const titleText = activeLabel ? `Label: ${activeLabel}` : activeFolder.charAt(0).toUpperCase() + activeFolder.slice(1);
 
   return (
-    <div className="border-b border-slate-200 bg-slate-50/80 px-4 py-2.5 flex flex-col gap-2">
+    <div className="border-b border-slate-200 bg-slate-50/80 px-3 sm:px-4 py-2.5 flex flex-col gap-2 min-w-0">
       {/* Top row: Folder name & count */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h2 className="text-base font-bold text-slate-900 tracking-tight">{titleText}</h2>
-          <span className="text-xs text-slate-500 font-semibold">({filteredEmails.length})</span>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2 min-w-0">
+          <h2 className="text-base font-bold text-slate-900 tracking-tight truncate">{titleText}</h2>
+          <span className="text-xs text-slate-500 font-semibold shrink-0">({filteredEmails.length})</span>
         </div>
 
         {/* Quick Tabs */}
-        <div className="flex items-center bg-slate-200/70 p-0.5 rounded-xl text-xs font-medium">
+        <div className="flex items-center bg-slate-200/70 p-0.5 rounded-xl text-xs font-medium overflow-x-auto no-scrollbar max-w-full shrink-0">
           {(['all', 'unread', 'starred', 'important'] as EmailFilterTab[]).map(tab => (
             <button
               key={tab}
               onClick={() => setFilterTab(tab)}
-              className={`px-2.5 py-1 rounded-lg capitalize transition-all ${
+              className={`px-2.5 py-1.5 sm:py-1 rounded-lg capitalize transition-all whitespace-nowrap ${
                 filterTab === tab
                   ? 'bg-blue-600 text-white font-semibold shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -69,8 +69,8 @@ export const EmailFilters: React.FC = () => {
       </div>
 
       {/* Bottom row: Multi-selection & Batch Action Bar */}
-      <div className="flex items-center justify-between min-h-[30px] pt-1">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap min-h-[30px] pt-1">
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
           {/* Select all toggle button */}
           <button
             onClick={handleSelectAllToggle}
@@ -87,7 +87,7 @@ export const EmailFilters: React.FC = () => {
           </button>
 
           {selectedEmailIds.length > 0 ? (
-            <div className="flex items-center gap-2 text-xs">
+            <div className="flex items-center gap-1 sm:gap-2 text-xs flex-wrap min-w-0">
               <span className="font-bold text-blue-600">{selectedEmailIds.length} selected</span>
               <div className="h-3 w-[1px] bg-slate-200 mx-1" />
               <button

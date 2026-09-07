@@ -94,10 +94,10 @@ export const ComposeEmail: React.FC = () => {
     <div
       className={`fixed z-50 transition-all duration-200 shadow-2xl flex flex-col bg-white border border-slate-200 rounded-2xl overflow-hidden ${
         isMaximized
-          ? 'inset-4 md:inset-10'
+          ? 'inset-2 sm:inset-4 md:inset-10'
           : isMinimized
-          ? 'bottom-0 right-4 md:right-8 w-80 h-14'
-          : 'bottom-0 right-4 md:right-8 w-full max-w-lg md:max-w-xl h-[540px]'
+          ? 'bottom-0 right-3 left-3 sm:left-auto sm:right-4 md:right-8 sm:w-80 h-14'
+          : 'bottom-0 inset-x-2 sm:inset-x-auto sm:right-4 md:right-8 sm:w-full sm:max-w-lg md:max-w-xl h-[min(540px,calc(100dvh-4rem))] max-h-[calc(100dvh-2rem)]'
       }`}
     >
       {/* Compose Header Bar */}
@@ -137,22 +137,22 @@ export const ComposeEmail: React.FC = () => {
       {!isMinimized && (
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 bg-white">
           {/* From Field */}
-          <div className="flex items-center px-4 py-2 border-b border-slate-100 text-xs bg-slate-50/50">
-            <span className="text-slate-400 w-12 font-medium">From:</span>
-            <span className="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200">
+          <div className="flex items-center px-4 py-2 border-b border-slate-100 text-xs bg-slate-50/50 gap-2">
+            <span className="text-slate-400 w-12 font-medium shrink-0">From:</span>
+            <span className="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200 truncate min-w-0">
               {user?.email || 'user@gmail.com'}
             </span>
           </div>
 
           {/* To Field */}
-          <div className="flex items-center px-4 py-2 border-b border-slate-100 text-xs">
-            <span className="text-slate-400 w-12 font-medium">To:</span>
+          <div className="flex items-center px-4 py-2 border-b border-slate-100 text-xs gap-2">
+            <span className="text-slate-400 w-12 font-medium shrink-0">To:</span>
             <input
               type="email"
               value={to}
               onChange={(e) => setTo(e.target.value)}
               placeholder="recipient@example.com"
-              className="flex-1 bg-transparent text-slate-900 placeholder:text-slate-400 focus:outline-none font-medium"
+              className="flex-1 min-w-0 bg-transparent text-slate-900 placeholder:text-slate-400 focus:outline-none font-medium"
               required
             />
             <div className="flex items-center gap-2 text-slate-400 font-medium">
@@ -218,8 +218,8 @@ export const ComposeEmail: React.FC = () => {
           </div>
 
           {/* Formatting Bar */}
-          <div className="flex items-center justify-between px-3 py-1.5 bg-slate-50 border-b border-slate-100 text-slate-500 text-xs">
-            <div className="flex items-center gap-1">
+          <div className="flex items-center justify-between gap-2 px-3 py-1.5 bg-slate-50 border-b border-slate-100 text-slate-500 text-xs">
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar min-w-0">
               <button
                 type="button"
                 className="p-1 rounded hover:text-slate-900 hover:bg-slate-200"
@@ -269,7 +269,7 @@ export const ComposeEmail: React.FC = () => {
             <button
               type="button"
               onClick={handleAIDraftAssist}
-              className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-[11px] font-bold transition shadow-2xs"
+              className="shrink-0 flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-[11px] font-bold transition shadow-2xs"
             >
               <Sparkles className="w-3 h-3 text-blue-600" />
               <span>AI Draft</span>

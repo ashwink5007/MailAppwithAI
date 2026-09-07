@@ -30,29 +30,29 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileSidebar }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   return (
-    <header className="h-16 border-b border-slate-200 bg-white/95 backdrop-blur-md px-4 flex items-center justify-between shrink-0 z-30 sticky top-0 shadow-sm">
+    <header className="min-h-16 border-b border-slate-200 bg-white/95 backdrop-blur-md px-3 sm:px-4 py-2 sm:py-0 sm:h-16 flex items-center justify-between gap-x-2 gap-y-2 flex-wrap shrink-0 z-30 sticky top-0 shadow-sm">
       {/* Left: Mobile Toggle & Branding */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <button
           onClick={onToggleMobileSidebar}
-          className="md:hidden p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition"
+          className="md:hidden p-2.5 sm:p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition shrink-0"
           aria-label="Toggle Navigation"
         >
           <Menu className="w-5 h-5" />
         </button>
 
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-500 flex items-center justify-center shadow-md shadow-blue-500/25 ring-2 ring-blue-100">
+        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-500 flex items-center justify-center shadow-md shadow-blue-500/25 ring-2 ring-blue-100 shrink-0">
             <Sparkles className="w-5 h-5 text-white" />
           </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-base tracking-tight text-slate-900">NebulaMail</span>
-              <span className="text-[10px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="font-bold text-base tracking-tight text-slate-900 truncate">NebulaMail</span>
+              <span className="hidden min-[420px]:inline-flex text-[10px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
                 Copilot
               </span>
               {mailboxMode === 'DEMO' && (
-                <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300 flex items-center gap-1 shadow-2xs">
+                <span className="hidden min-[420px]:flex text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300 items-center gap-1 shadow-2xs shrink-0">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                   Demo Mode
                 </span>
@@ -63,8 +63,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileSidebar }) => {
         </div>
       </div>
 
-      {/* Center: Search Bar */}
-      <div className="flex-1 max-w-xl mx-4">
+      {/* Center: Search Bar — full-width second row on mobile, inline on sm+ */}
+      <div className="order-3 basis-full sm:order-none sm:basis-auto sm:flex-1 w-full sm:w-auto sm:min-w-0 sm:max-w-xl sm:mx-4">
         <div className="relative group">
           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-600 transition-colors">
             <Search className="w-4 h-4" />
@@ -73,8 +73,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileSidebar }) => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search sender, subject, keywords (or try 'John')..."
-            className="w-full bg-slate-100/90 hover:bg-slate-100 text-slate-900 text-sm pl-10 pr-16 py-2 rounded-xl border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all placeholder:text-slate-400 shadow-inner"
+            placeholder="Search emails..."
+            aria-label="Search emails"
+            className="w-full bg-slate-100/90 hover:bg-slate-100 text-slate-900 text-sm pl-10 pr-10 py-2 sm:py-2 rounded-xl border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all placeholder:text-slate-400 shadow-inner min-h-[40px]"
           />
           {searchQuery ? (
             <button
@@ -94,7 +95,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileSidebar }) => {
       </div>
 
       {/* Right: Actions, AI Copilot Trigger, Notifications, Profile */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2 ml-auto sm:ml-0 shrink-0">
         {/* AI Copilot Toggle Button */}
         <button
           onClick={toggleAI}
@@ -123,8 +124,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileSidebar }) => {
         <div className="relative">
           <button
             onClick={() => setShowNotifications(!showNotifications)}
-            className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition relative"
+            className="p-2.5 sm:p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition relative"
             aria-label="Notifications"
+            aria-expanded={showNotifications}
           >
             <Bell className="w-4 h-4" />
             {unreadCount > 0 && (
@@ -133,7 +135,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileSidebar }) => {
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-2xl shadow-xl p-3 z-50">
+            <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-80 max-h-[70vh] overflow-y-auto bg-white border border-slate-200 rounded-2xl shadow-xl p-3 z-50">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <span className="text-xs font-semibold text-slate-900">Notifications</span>
                 <span className="text-[11px] text-blue-600 cursor-pointer hover:underline font-medium">Mark all read</span>
@@ -174,19 +176,19 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileSidebar }) => {
               )}
               <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full" />
             </div>
-            <div className="hidden xl:block text-left">
-              <p className="text-xs font-bold text-slate-800 leading-none">{user?.name || 'Alex Rivera'}</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">{user?.email || 'alex@aimail.io'}</p>
+            <div className="hidden xl:block text-left min-w-0 max-w-[160px]">
+              <p className="text-xs font-bold text-slate-800 leading-none truncate">{user?.name || 'Alex Rivera'}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5 truncate">{user?.email || 'alex@aimail.io'}</p>
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden xl:block" />
           </button>
 
           {showProfileMenu && (
-            <div className="absolute right-0 mt-2 w-60 bg-white border border-slate-200 rounded-2xl shadow-xl p-2 z-50">
-              <div className="px-3 py-2 border-b border-slate-100">
-                <div className="flex items-center gap-1.5">
-                  <p className="text-xs font-bold text-slate-900">{user?.name || 'Alex Rivera'}</p>
-                  <span className="text-[9px] font-semibold uppercase px-1.5 py-0.2 rounded bg-blue-100 text-blue-700">
+            <div className="absolute right-0 mt-2 w-60 max-w-[calc(100vw-2rem)] bg-white border border-slate-200 rounded-2xl shadow-xl p-2 z-50">
+              <div className="px-3 py-2 border-b border-slate-100 min-w-0">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <p className="text-xs font-bold text-slate-900 truncate">{user?.name || 'Alex Rivera'}</p>
+                  <span className="text-[9px] font-semibold uppercase px-1.5 py-0.2 rounded bg-blue-100 text-blue-700 shrink-0">
                     OAuth 2.0
                   </span>
                 </div>

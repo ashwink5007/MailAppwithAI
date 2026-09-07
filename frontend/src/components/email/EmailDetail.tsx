@@ -79,8 +79,8 @@ export const EmailDetail: React.FC<EmailDetailProps> = ({ onBackMobile }) => {
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-50/50 min-w-0 overflow-hidden">
       {/* Top Action Toolbar */}
-      <div className="h-14 border-b border-slate-200 bg-white px-4 flex items-center justify-between shrink-0 shadow-xs">
-        <div className="flex items-center gap-1.5">
+      <div className="min-h-14 border-b border-slate-200 bg-white px-2 sm:px-4 py-1.5 flex items-center justify-between gap-1 shrink-0 shadow-xs flex-wrap">
+        <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
           {onBackMobile && (
             <button
               onClick={onBackMobile}
@@ -140,7 +140,7 @@ export const EmailDetail: React.FC<EmailDetailProps> = ({ onBackMobile }) => {
         </div>
 
         {/* AI Quick Actions on Thread */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => summarizeCurrentEmail()}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 text-xs font-semibold transition shadow-xs"
@@ -191,40 +191,40 @@ export const EmailDetail: React.FC<EmailDetailProps> = ({ onBackMobile }) => {
             >
               {/* Message Sender Header */}
               <div className="flex items-start justify-between gap-3 pb-3.5 border-b border-slate-100">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
                   {msg.sender.avatar ? (
                     <img
                       src={msg.sender.avatar}
                       alt={msg.sender.name}
-                      className="w-10 h-10 rounded-full object-cover ring-2 ring-blue-100"
+                      className="w-10 h-10 rounded-full object-cover ring-2 ring-blue-100 shrink-0"
                     />
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-sm ring-2 ring-blue-100">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-sm ring-2 ring-blue-100 shrink-0">
                       {msg.sender.name.charAt(0)}
                     </div>
                   )}
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-slate-900">{msg.sender.name}</span>
-                      <span className="text-[11px] text-slate-500 hidden sm:inline">&lt;{msg.sender.email}&gt;</span>
-                      <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200 font-medium">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                      <span className="text-sm font-bold text-slate-900 truncate">{msg.sender.name}</span>
+                      <span className="text-[11px] text-slate-500 hidden sm:inline truncate">&lt;{msg.sender.email}&gt;</span>
+                      <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200 font-medium shrink-0">
                         <ShieldCheck className="w-3 h-3 text-emerald-600" />
                         TLS
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
+                    <p className="text-[11px] text-slate-500 mt-0.5 break-words">
                       To: {msg.recipients.join(', ')}
                     </p>
                   </div>
                 </div>
 
-                <div className="text-right">
-                  <span className="text-xs text-slate-400 font-medium">{msg.fullDate}</span>
+                <div className="text-right shrink-0">
+                  <span className="text-xs text-slate-400 font-medium whitespace-nowrap">{msg.fullDate}</span>
                 </div>
               </div>
 
               {/* Message Body */}
-              <div className="pt-4 text-sm text-slate-800 leading-relaxed whitespace-pre-wrap font-normal">
+              <div className="pt-4 text-sm text-slate-800 leading-relaxed whitespace-pre-wrap break-words font-normal">
                 {msg.body}
               </div>
 
@@ -273,7 +273,7 @@ export const EmailDetail: React.FC<EmailDetailProps> = ({ onBackMobile }) => {
 
         {/* Action Buttons: Reply, Reply All, Forward */}
         {!isReplyOpen ? (
-          <div className="flex items-center gap-2 pt-2">
+          <div className="flex items-center gap-2 pt-2 flex-wrap">
             <button
               onClick={() => setIsReplyOpen(true)}
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-blue-500/20 transition"

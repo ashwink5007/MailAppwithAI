@@ -43,6 +43,16 @@
   background: rgba(148, 163, 184, 0.6);
 }
 
+/* Hide scrollbars for horizontal pill rails while keeping scrollability */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Glassmorphism light utility */
 .glass-panel {
   background: rgba(255, 255, 255, 0.85);
