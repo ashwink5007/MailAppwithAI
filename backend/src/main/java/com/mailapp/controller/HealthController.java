@@ -92,4 +92,23 @@ public class HealthController {
         status.put("redirectUri", "https://mailappwithai.up.railway.app/login/oauth2/code/google");
         return status;
     }
+
+    /**
+     * Safe Gemini diagnostic — reveals whether GEMINI_API_KEY is resolved
+     * WITHOUT exposing the actual key value.
+     */
+    @Value("${gemini.api-key:}")
+    private String geminiApiKey;
+
+    @Value("${gemini.model:gemini-3.6-flash}")
+    private String geminiModel;
+
+    @GetMapping("/debug/gemini-status")
+    public Map<String, Object> geminiStatus() {
+        Map<String, Object> status = new LinkedHashMap<>();
+        status.put("apiKeyPresent", geminiApiKey != null && !geminiApiKey.isBlank());
+        status.put("apiKeyLength", geminiApiKey != null ? geminiApiKey.length() : 0);
+        status.put("model", geminiModel);
+        return status;
+    }
 }
