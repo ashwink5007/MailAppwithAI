@@ -94,6 +94,55 @@ public class HealthController {
     }
 
     /**
+     * Diagnostic — checks if the users table has the password_hash column.
+     */
+    @GetMapping("/debug/db-schema")
+    public Map<String, Object> dbSchema() {
+        Map<String, Object> status = new LinkedHashMap<>();
+        if (dataSource == null) {
+            status.put("error", "No DataSource configured");
+            return status;
+        }
+        try (Connection conn = dataSource.getConnection()) {
+            var rs = conn.createStatement().executeQuery(
+                    "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = 'users' ORDER BY ordinal_position");
+            var columns = new java.util.ArrayList<Map<String, Object>>();
+            while (rs.next()) {
+                var col = new LinkedHashMap<String, Object>();
+                col.put("name", rs.getString("column_name"));
+                col.put("type", rs.getString("data_type"));
+                col.put("nullable", rs.getString("is_nullable"));
+                columns.add(col);
+            }
+            status.put("table", "users");
+            status.put("columns", columns);
+            status.put("columnCount", columns.size());
+
+            boolean hasPasswordHash = columns.stream()
+                    .anyMatch(c -> "password_hash".equals(c.get("name")));
+            boolean googleIdNullable = columns.stream()
+                    .filter(c -> "google_id".equals(c.get("name")))
+                    .findFirst()
+                    .map(c -> "YES".equals(c.get("nullable")))
+                    .orElse(false);
+
+            status.put("passwordHashExists", hasPasswordHash);
+            status.put("googleIdNullable", googleIdNullable);
+
+            if (!hasPasswordHash) {
+                status.put("issue", "password_hash column MISSING — run: ALTER TABLE users ADD COLUMN password_hash VARCHAR(255);");
+            } else if (!googleIdNullable) {
+                status.put("issue", "google_id is NOT NULL — run: ALTER TABLE users ALTER COLUMN google_id DROP NOT NULL;");
+            } else {
+                status.put("issue", "Schema OK — no issues detected");
+            }
+        } catch (Exception e) {
+            status.put("error", e.getMessage());
+        }
+        return status;
+    }
+
+    /**
      * Safe Gemini diagnostic — reveals whether GEMINI_API_KEY is resolved
      * WITHOUT exposing the actual key value.
      */

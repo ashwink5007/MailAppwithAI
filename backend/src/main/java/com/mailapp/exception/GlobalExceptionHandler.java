@@ -52,10 +52,18 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGeneral(Exception ex) {
+        String rootMessage = ex.getMessage();
+        Throwable cause = ex.getCause();
+        while (cause != null) {
+            if (cause.getMessage() != null && !cause.getMessage().isEmpty()) {
+                rootMessage = cause.getMessage();
+            }
+            cause = cause.getCause();
+        }
         org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class)
-                .error("Unhandled exception", ex);
+                .error("Unhandled exception: {}", rootMessage, ex);
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error("An unexpected error occurred. Please try again later."));
+                .body(ApiResponse.error("Server error: " + (rootMessage != null ? rootMessage.substring(0, Math.min(rootMessage.length(), 200)) : "unknown")));
     }
 }

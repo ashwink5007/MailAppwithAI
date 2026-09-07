@@ -34,72 +34,95 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<Map<String, Object>>> register(
             @RequestBody @Valid RegisterRequest request) {
-        String email = request.email().trim().toLowerCase();
+        try {
+            String email = request.email().trim().toLowerCase();
 
-        if (userRepository.findByEmail(email).isPresent()) {
-            return ResponseEntity.ok(ApiResponse.error("An account with this email already exists."));
+            if (userRepository.findByEmail(email).isPresent()) {
+                return ResponseEntity.ok(ApiResponse.error("An account with this email already exists."));
+            }
+
+            User user = User.builder()
+                    .email(email)
+                    .name(request.displayName().trim())
+                    .passwordHash(passwordEncoder.encode(request.password()))
+                    .build();
+
+            User saved = userRepository.save(user);
+            log.info("New user registered: {}", email);
+
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("id", saved.getId());
+            data.put("email", saved.getEmail());
+            data.put("displayName", saved.getName());
+            data.put("googleConnected", saved.getGoogleId() != null);
+
+            return ResponseEntity.ok(ApiResponse.ok("Registration successful", data));
+        } catch (Exception e) {
+            String msg = e.getMessage();
+            Throwable cause = e.getCause();
+            while (cause != null) {
+                if (cause.getMessage() != null) msg = cause.getMessage();
+                cause = cause.getCause();
+            }
+            log.error("Registration failed: {}", msg, e);
+            return ResponseEntity.ok(ApiResponse.error("Registration failed: " +
+                    (msg != null ? msg.substring(0, Math.min(msg.length(), 200)) : "unknown error")));
         }
-
-        User user = User.builder()
-                .email(email)
-                .name(request.displayName().trim())
-                .passwordHash(passwordEncoder.encode(request.password()))
-                .build();
-
-        User saved = userRepository.save(user);
-        log.info("New user registered: {}", email);
-
-        Map<String, Object> data = new LinkedHashMap<>();
-        data.put("id", saved.getId());
-        data.put("email", saved.getEmail());
-        data.put("displayName", saved.getName());
-        data.put("googleConnected", saved.getGoogleId() != null);
-
-        return ResponseEntity.ok(ApiResponse.ok("Registration successful", data));
     }
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<Map<String, Object>>> login(
             @RequestBody @Valid LoginRequest request,
             HttpServletRequest httpRequest) {
+        try {
+            String email = request.email().trim().toLowerCase();
 
-        String email = request.email().trim().toLowerCase();
+            Optional<User> userOpt = userRepository.findByEmail(email);
+            if (userOpt.isEmpty()) {
+                return ResponseEntity.ok(ApiResponse.error("Invalid email or password."));
+            }
 
-        Optional<User> userOpt = userRepository.findByEmail(email);
-        if (userOpt.isEmpty()) {
-            return ResponseEntity.ok(ApiResponse.error("Invalid email or password."));
+            User user = userOpt.get();
+
+            if (user.getPasswordHash() == null) {
+                return ResponseEntity.ok(ApiResponse.error(
+                        "This account uses Google sign-in. Please continue with Google."));
+            }
+
+            if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+                return ResponseEntity.ok(ApiResponse.error("Invalid email or password."));
+            }
+
+            Authentication auth = new UsernamePasswordAuthenticationToken(
+                    user,
+                    null,
+                    List.of(new SimpleGrantedAuthority("ROLE_USER")));
+            SecurityContextHolder.getContext().setAuthentication(auth);
+
+            HttpSession session = httpRequest.getSession(true);
+            session.setAttribute("SPRING_SECURITY_CONTEXT", SecurityContextHolder.getContext());
+
+            log.info("User logged in via email/password: {}", email);
+
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("id", user.getId());
+            data.put("email", user.getEmail());
+            data.put("displayName", user.getName());
+            data.put("profilePictureUrl", user.getProfilePictureUrl());
+            data.put("googleConnected", user.getGoogleId() != null);
+
+            return ResponseEntity.ok(ApiResponse.ok("Login successful", data));
+        } catch (Exception e) {
+            String msg = e.getMessage();
+            Throwable cause = e.getCause();
+            while (cause != null) {
+                if (cause.getMessage() != null) msg = cause.getMessage();
+                cause = cause.getCause();
+            }
+            log.error("Login failed: {}", msg, e);
+            return ResponseEntity.ok(ApiResponse.error("Login failed: " +
+                    (msg != null ? msg.substring(0, Math.min(msg.length(), 200)) : "unknown error")));
         }
-
-        User user = userOpt.get();
-
-        if (user.getPasswordHash() == null) {
-            return ResponseEntity.ok(ApiResponse.error(
-                    "This account uses Google sign-in. Please continue with Google."));
-        }
-
-        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
-            return ResponseEntity.ok(ApiResponse.error("Invalid email or password."));
-        }
-
-        Authentication auth = new UsernamePasswordAuthenticationToken(
-                user,
-                null,
-                List.of(new SimpleGrantedAuthority("ROLE_USER")));
-        SecurityContextHolder.getContext().setAuthentication(auth);
-
-        HttpSession session = httpRequest.getSession(true);
-        session.setAttribute("SPRING_SECURITY_CONTEXT", SecurityContextHolder.getContext());
-
-        log.info("User logged in via email/password: {}", email);
-
-        Map<String, Object> data = new LinkedHashMap<>();
-        data.put("id", user.getId());
-        data.put("email", user.getEmail());
-        data.put("displayName", user.getName());
-        data.put("profilePictureUrl", user.getProfilePictureUrl());
-        data.put("googleConnected", user.getGoogleId() != null);
-
-        return ResponseEntity.ok(ApiResponse.ok("Login successful", data));
     }
 
     @GetMapping("/me")
