@@ -8,6 +8,7 @@ export interface UserProfile {
   provider: OAuthProvider;
   tokenType: string;
   scope: string[];
+  googleConnected?: boolean;
 }
 
-export type AuthStatus = 'unauthenticated' | 'connecting' | 'authorizing' | 'authenticated';
+export type AuthStatus = 'unauthenticated' | 'loading' | 'connecting' | 'authorizing' | 'authenticated';

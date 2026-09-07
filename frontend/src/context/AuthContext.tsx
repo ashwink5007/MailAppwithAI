@@ -3,11 +3,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { UserProfile, OAuthProvider, AuthStatus } from '../types/auth';
 
-// Absolute backend URL — used for the OAuth2 redirect AND all API calls.
-// In production (Vercel → Railway), the browser must call the Railway backend
-// directly so the JSESSIONID session cookie (set on the Railway domain) is sent.
-// Next.js server-side rewrites would NOT forward the Railway cookie because
-// the browser only sends cookies matching the address-bar domain.
 const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080').replace(/\/+$/, '');
 
 interface AuthContextType {
@@ -15,7 +10,10 @@ interface AuthContextType {
   isAuthenticated: boolean;
   status: AuthStatus;
   statusMessage: string;
+  googleConnected: boolean;
   loginWithOAuth: (provider: OAuthProvider) => void;
+  login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
+  register: (email: string, password: string, displayName: string) => Promise<{ success: boolean; message: string }>;
   logout: () => Promise<void>;
 }
 
@@ -23,25 +21,18 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
-  const [status, setStatus] = useState<AuthStatus>('unauthenticated');
+  const [status, setStatus] = useState<AuthStatus>('loading');
   const [statusMessage, setStatusMessage] = useState<string>('');
+  const [googleConnected, setGoogleConnected] = useState<boolean>(false);
 
-  /**
-   * Checks whether the user already has a valid backend session by calling
-   * GET /api/user/me. If the response contains a user email, the session is
-   * active and we populate the user profile without requiring a new login.
-   *
-   * Called on mount and after returning from the OAuth redirect.
-   */
   const checkSession = useCallback(async () => {
     try {
-      // Use absolute URL so the browser sends the JSESSIONID cookie directly
-      // to the Railway backend (cross-domain: Vercel → Railway).
       const res = await fetch(`${BACKEND_URL}/api/user/me`, {
         credentials: 'include',
       });
       if (!res.ok) {
         setUser(null);
+        setGoogleConnected(false);
         setStatus('unauthenticated');
         return;
       }
@@ -57,65 +48,90 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           provider: 'google',
           tokenType: 'Bearer',
           scope: ['https://mail.google.com/', 'openid', 'profile', 'email'],
+          googleConnected: userData.googleConnected ?? (userData.googleId != null),
         };
         setUser(profile);
+        setGoogleConnected(profile.googleConnected ?? false);
         setStatus('authenticated');
         setStatusMessage('');
       } else {
         setUser(null);
+        setGoogleConnected(false);
         setStatus('unauthenticated');
       }
     } catch {
-      // Backend unreachable — treat as unauthenticated
       setUser(null);
+      setGoogleConnected(false);
       setStatus('unauthenticated');
     }
   }, []);
 
-  // On mount: restore session from cookie if the user was previously logged in,
-  // or if they've just returned from the Google OAuth consent screen.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('login') === 'success') {
-      // Coming back from Google OAuth redirect — clean up the URL param
       window.history.replaceState({}, '', window.location.pathname);
     }
-    // Session restoration is an external request whose result updates auth state.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     checkSession();
   }, [checkSession]);
 
-  /**
-   * Initiates a real Google OAuth2 flow.
-   * Redirects the browser to the Spring Boot OAuth2 authorization endpoint,
-   * which then redirects to Google's consent screen.
-   * On success, Google sends the user back to the backend callback URL,
-   * which in turn redirects to the frontend with ?login=success.
-   */
   const loginWithOAuth = useCallback((provider: OAuthProvider) => {
     if (provider === 'google') {
       setStatus('connecting');
       setStatusMessage('Redirecting to Google OAuth 2.0...');
-      // Small delay so the UI can show the "connecting" state before navigation
       setTimeout(() => {
-        // OAuth navigation intentionally leaves the Next.js origin.
-        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
         window.location.href = `${BACKEND_URL}/oauth2/authorization/google`;
       }, 400);
     } else {
-      // Microsoft and GitHub are not yet integrated — show a status message
       setStatusMessage(`${provider} OAuth coming soon.`);
     }
   }, []);
 
-  /**
-   * Logs the user out by hitting Spring Security's /logout endpoint,
-   * which invalidates the server-side session and clears the cookie.
-   */
+  const login = useCallback(async (email: string, password: string) => {
+    try {
+      setStatus('loading');
+      const res = await fetch(`${BACKEND_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email, password }),
+      });
+      const body = await res.json();
+      if (body.success) {
+        await checkSession();
+        return { success: true, message: body.message };
+      }
+      setStatus('unauthenticated');
+      return { success: false, message: body.message || 'Login failed.' };
+    } catch {
+      setStatus('unauthenticated');
+      return { success: false, message: 'Unable to connect to server.' };
+    }
+  }, [checkSession]);
+
+  const register = useCallback(async (email: string, password: string, displayName: string) => {
+    try {
+      setStatus('loading');
+      const res = await fetch(`${BACKEND_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email, password, displayName }),
+      });
+      const body = await res.json();
+      if (body.success) {
+        setStatus('unauthenticated');
+        return { success: true, message: body.message };
+      }
+      setStatus('unauthenticated');
+      return { success: false, message: body.message || 'Registration failed.' };
+    } catch {
+      setStatus('unauthenticated');
+      return { success: false, message: 'Unable to connect to server.' };
+    }
+  }, []);
+
   const logout = useCallback(async () => {
     try {
-      // Use absolute URL so the browser sends the JSESSIONID cookie directly
-      // to the Railway backend for session invalidation.
       await fetch(`${BACKEND_URL}/logout`, {
         method: 'POST',
         credentials: 'include',
@@ -124,22 +140,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Ignore network errors during logout
     } finally {
       setUser(null);
+      setGoogleConnected(false);
       setStatus('unauthenticated');
       setStatusMessage('');
     }
   }, []);
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated: !!user,
-        status,
-        statusMessage,
-        loginWithOAuth,
-        logout,
-      }}
-    >
+    <AuthContext.Provider value={{
+      user,
+      isAuthenticated: !!user,
+      status,
+      statusMessage,
+      googleConnected,
+      loginWithOAuth,
+      login,
+      register,
+      logout,
+    }}>
       {children}
     </AuthContext.Provider>
   );

@@ -20,15 +20,19 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false)
+    @Column(unique = true)
     private String googleId;
 
     @Column(unique = true, nullable = false)
     private String email;
 
+    @Column(nullable = false)
     private String name;
 
     private String profilePictureUrl;
+
+    @Column(name = "password_hash")
+    private String passwordHash;
 
     @Column(updatable = false)
     private LocalDateTime createdAt;

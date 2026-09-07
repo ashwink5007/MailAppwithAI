@@ -35,6 +35,10 @@ const nextConfig: NextConfig = {
         source: "/logout",
         destination: `${BACKEND_URL}/logout`,
       },
+      {
+        source: "/auth/:path*",
+        destination: `${BACKEND_URL}/auth/:path*`,
+      },
     ];
   },
 };

@@ -45,7 +45,7 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(authz -> authz
                         // Public endpoints — health check, user status, and OAuth diagnostic
-                        .requestMatchers("/api/health", "/api/health/ready", "/api/user/me", "/api/users/me", "/api/debug/oauth-status", "/api/debug/gemini-status").permitAll()
+                        .requestMatchers("/api/health", "/api/health/ready", "/api/user/me", "/api/users/me", "/api/debug/oauth-status", "/api/debug/gemini-status", "/auth/**").permitAll()
                         // All other /api/** require OAuth2 login
                         .anyRequest().authenticated())
 
