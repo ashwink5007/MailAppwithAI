@@ -4,13 +4,12 @@
  * All backend communication goes through this module.
  * Components and services never call fetch() directly.
  *
- * With the Next.js rewrites in next.config.ts, /api/** calls are transparently
- * proxied to the Spring Boot backend (localhost:8080) by the Next.js dev server.
- * This means all requests are same-origin from the browser's perspective,
- * so session cookies are sent automatically without any CORS configuration.
- *
- * In production, configure the proxy target via NEXT_PUBLIC_API_URL.
+ * In production (Vercel → Railway), requests go directly to the Railway backend
+ * using the absolute BACKEND_URL so the browser sends the JSESSIONID session
+ * cookie (set on the Railway domain) with every request.
  */
+
+const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080').replace(/\/+$/, '');
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -26,10 +25,9 @@ async function apiRequest<T>(
   endpoint: string,
   options?: RequestInit
 ): Promise<ApiResponse<T>> {
-  // Use relative URL — Next.js proxy rewrites handle routing to the backend.
-  // credentials: 'include' ensures session cookies are sent on cross-origin
-  // fallback requests (e.g., if the proxy is bypassed).
-  const response = await fetch(endpoint, {
+  // Build absolute URL so the browser sends the Railway session cookie directly.
+  const url = endpoint.startsWith('http') ? endpoint : `${BACKEND_URL}${endpoint}`;
+  const response = await fetch(url, {
     headers: {
       'Content-Type': 'application/json',
       ...options?.headers,

@@ -3,9 +3,12 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { UserProfile, OAuthProvider, AuthStatus } from '../types/auth';
 
-// Absolute backend URL — only used for the OAuth2 redirect (must leave the Next.js origin).
-// All other API calls use relative paths proxied by Next.js rewrites in next.config.ts.
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+// Absolute backend URL — used for the OAuth2 redirect AND all API calls.
+// In production (Vercel → Railway), the browser must call the Railway backend
+// directly so the JSESSIONID session cookie (set on the Railway domain) is sent.
+// Next.js server-side rewrites would NOT forward the Railway cookie because
+// the browser only sends cookies matching the address-bar domain.
+const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080').replace(/\/+$/, '');
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -32,8 +35,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
    */
   const checkSession = useCallback(async () => {
     try {
-      // Use relative URL — proxied by Next.js to http://localhost:8080/api/user/me
-      const res = await fetch('/api/user/me', {
+      // Use absolute URL so the browser sends the JSESSIONID cookie directly
+      // to the Railway backend (cross-domain: Vercel → Railway).
+      const res = await fetch(`${BACKEND_URL}/api/user/me`, {
         credentials: 'include',
       });
       if (!res.ok) {
@@ -86,7 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
    * Redirects the browser to the Spring Boot OAuth2 authorization endpoint,
    * which then redirects to Google's consent screen.
    * On success, Google sends the user back to the backend callback URL,
-   * which in turn redirects to http://localhost:3000/?login=success.
+   * which in turn redirects to the frontend with ?login=success.
    */
   const loginWithOAuth = useCallback((provider: OAuthProvider) => {
     if (provider === 'google') {
@@ -110,8 +114,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
    */
   const logout = useCallback(async () => {
     try {
-      // Use relative URL — proxied by Next.js to http://localhost:8080/logout
-      await fetch('/logout', {
+      // Use absolute URL so the browser sends the JSESSIONID cookie directly
+      // to the Railway backend for session invalidation.
+      await fetch(`${BACKEND_URL}/logout`, {
         method: 'POST',
         credentials: 'include',
       });

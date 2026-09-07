@@ -44,8 +44,8 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
 
                 .authorizeHttpRequests(authz -> authz
-                        // Public endpoints — health check and user status
-                        .requestMatchers("/api/health", "/api/user/me", "/api/users/me").permitAll()
+                        // Public endpoints — health check, user status, and OAuth diagnostic
+                        .requestMatchers("/api/health", "/api/user/me", "/api/users/me", "/api/debug/oauth-status").permitAll()
                         // All other /api/** require OAuth2 login
                         .anyRequest().authenticated())
 
