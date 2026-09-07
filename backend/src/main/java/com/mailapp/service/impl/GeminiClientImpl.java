@@ -67,7 +67,8 @@ public class GeminiClientImpl implements GeminiClient {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             System.out.println("Gemini API response status: " + response.statusCode());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                System.err.println("Gemini API error body: " + response.body());
+                String reason = extractErrorReason(response.body());
+                System.err.println("Gemini API error: HTTP " + response.statusCode() + " - " + reason);
                 throw new AiException(formatProviderError(response.statusCode(), response.body()));
             }
 
@@ -92,12 +93,50 @@ public class GeminiClientImpl implements GeminiClient {
         if (statusCode == 401 || statusCode == 403) {
             return "Gemini rejected the API key. Check GEMINI_API_KEY and restart the backend.";
         }
+        if (statusCode == 400) {
+            String lower = responseBody != null ? responseBody.toLowerCase() : "";
+            if (lower.contains("api_key_invalid") || lower.contains("api key not valid")) {
+                return "Gemini API key is invalid. Regenerate it at aistudio.google.com and update GEMINI_API_KEY on Railway.";
+            }
+            if (lower.contains("model_not_found") || lower.contains("model not found")) {
+                return "The configured Gemini model was not found. Check GEMINI_MODEL (current: " + model + ").";
+            }
+            return "Gemini rejected the request (HTTP 400). Check GEMINI_API_KEY and GEMINI_MODEL.";
+        }
         if (statusCode == 404) {
-            return "The configured Gemini model was not found. Check GEMINI_MODEL (expected: gemini-3.6-flash).";
+            return "The configured Gemini model was not found. Check GEMINI_MODEL (current: " + model + ").";
         }
         if (statusCode == 429) {
             return "Gemini rate limit reached. Please wait and try again.";
         }
         return "Gemini is temporarily unavailable. Please try again later.";
+    }
+
+    /**
+     * Safely extracts the error reason from a Gemini API error response
+     * without exposing the full response body or any embedded credentials.
+     */
+    private String extractErrorReason(String responseBody) {
+        if (responseBody == null || responseBody.isBlank()) {
+            return "unknown";
+        }
+        try {
+            JsonNode root = objectMapper.readTree(responseBody);
+            JsonNode error = root.path("error");
+            if (error.isObject()) {
+                String message = error.path("message").asText("");
+                String reason = error.path("status").asText("");
+                if (!message.isEmpty() && !reason.isEmpty()) {
+                    return reason + " - " + message;
+                }
+                if (!message.isEmpty()) {
+                    return message.length() > 200 ? message.substring(0, 200) + "..." : message;
+                }
+                return reason.isEmpty() ? "unknown" : reason;
+            }
+        } catch (Exception ignored) {
+            // Not JSON — return generic
+        }
+        return "error";
     }
 }
