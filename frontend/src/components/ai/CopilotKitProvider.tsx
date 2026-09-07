@@ -1,23 +1,32 @@
 'use client';
 
-import React from 'react';
-import { CopilotKit } from '@copilotkit/react-core/v2';
+import React, { useRef } from 'react';
+import { CopilotKitCoreReact, CopilotKitContext } from '@copilotkit/react-core/v2/context';
 
 /**
- * Wraps the application with the real CopilotKit context provider.
+ * Custom CopilotKit context provider that bypasses the CopilotKit component's
+ * runtime agent discovery. The CopilotKit component calls useAgent() internally,
+ * which requires a runtime with registered agents — but this app uses its own
+ * AI pipeline (AICopilotContext → Spring Boot → Gemini).
  *
- * This enables `useFrontendTool` (and other CopilotKit hooks) to register
- * tools that the CopilotKit agent can invoke. The runtime URL points to
- * the local Next.js API route that hosts the CopilotKit runtime.
- *
- * NOTE: The actual AI chat flow goes through AICopilotContext -> Spring Boot
- * -> Gemini. CopilotKit is used here for frontend tool registration and
- * the agentic tool UI layer.
+ * This provider creates a minimal CopilotKitCoreReact instance that allows
+ * useFrontendTool hooks to register tools locally without a runtime connection.
  */
 export const CopilotKitProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const copilotkitRef = useRef<CopilotKitCoreReact | null>(null);
+
+  if (copilotkitRef.current === null) {
+    copilotkitRef.current = new CopilotKitCoreReact({});
+  }
+
+  const contextValue = React.useMemo(
+    () => ({ copilotkit: copilotkitRef.current!, executingToolCallIds: new Set<string>() }),
+    []
+  );
+
   return (
-    <CopilotKit runtimeUrl="/copilotkit/api">
+    <CopilotKitContext.Provider value={contextValue}>
       {children}
-    </CopilotKit>
+    </CopilotKitContext.Provider>
   );
 };
