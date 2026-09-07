@@ -11,7 +11,7 @@ Instead of treating AI as a simple chatbot, NebulaMail allows users to interact 
 ## Live Demo
 
 **Frontend:**  
-https://mail-appwith-nd3cmyems-alagarashwins-projects.vercel.app
+https://nebulamail.vercel.app
 
 **Backend API:**  
 https://mailappwithai.up.railway.app
