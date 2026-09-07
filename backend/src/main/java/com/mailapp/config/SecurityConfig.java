@@ -72,20 +72,30 @@ public class SecurityConfig {
 
     /**
      * Returns a 401 JSON response for unauthenticated API requests.
-     * Prevents Spring Security from issuing a 302 redirect to Google's login
+     * Prevents Spring Security from issuing a 302 redirect to Google login
      * when the frontend calls /api/emails without a valid session.
+     *
+     * For non-API paths (e.g. browser navigation to /dashboard), delegates to
+     * the default OAuth2 redirect so the user is sent to Google's consent screen.
      */
     @Bean
     public AuthenticationEntryPoint apiAuthenticationEntryPoint() {
         return (HttpServletRequest request, HttpServletResponse response, AuthenticationException authException) -> {
-            response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            Map<String, Object> errorResponse = new LinkedHashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("message", "Not authenticated. Please login via Google OAuth.");
-            errorResponse.put("data", null);
-            String body = new ObjectMapper().writeValueAsString(errorResponse);
-            response.getWriter().write(body);
+            String uri = request.getRequestURI();
+            if (uri.startsWith("/api/")) {
+                response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                Map<String, Object> errorResponse = new LinkedHashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "Not authenticated. Please login via Google OAuth.");
+                errorResponse.put("data", null);
+                String body = new ObjectMapper().writeValueAsString(errorResponse);
+                response.getWriter().write(body);
+            } else {
+                // Non-API path — redirect to Google OAuth so browser users are not
+                // stuck with a raw JSON error page.
+                response.sendRedirect(request.getContextPath() + "/oauth2/authorization/google");
+            }
         };
     }
 }
