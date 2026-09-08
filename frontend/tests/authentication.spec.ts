@@ -41,6 +41,7 @@ test('email/password sign-in performs one explicit login and confirms the sessio
   await page.getByPlaceholder('Min. 8 characters').fill('password123');
   await page.getByRole('button', { name: 'Sign in' }).click();
 
+  await expect(page).toHaveURL(/\/mail$/);
   await expect(page.getByText('qa.tester@example.com').first()).toBeVisible();
   expect(loginRequests).toBe(1);
   // One startup check plus one post-login confirmation; neither is a login.

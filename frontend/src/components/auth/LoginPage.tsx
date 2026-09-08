@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Sparkles,
   ShieldCheck,
@@ -16,6 +17,7 @@ import { useAuth } from '../../context/AuthContext';
 
 export const LoginPage: React.FC = () => {
   const { loginWithOAuth, login, register, status, statusMessage } = useAuth();
+  const router = useRouter();
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -42,7 +44,10 @@ export const LoginPage: React.FC = () => {
       }
     } else {
       const result = await login(email, password);
-      if (!result.success) {
+      if (result.success) {
+        // login() only succeeds after the authenticated /me check completes.
+        router.replace('/mail');
+      } else {
         setError(result.message);
       }
     }

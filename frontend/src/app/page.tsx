@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { AuthProvider, useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { EmailProvider } from '../context/EmailContext';
 import { AICopilotProvider } from '../context/AICopilotContext';
 import { MainLayout } from '../components/layout/MainLayout';
@@ -34,9 +34,5 @@ function AppContent() {
 }
 
 export default function Home() {
-  return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
-  );
+  return <AppContent />;
 }
