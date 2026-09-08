@@ -68,7 +68,8 @@ class DemoMailboxServiceTest {
 
     @Test
     void simulatedSendAddsToSentFolder() {
-        SendEmailRequest request = new SendEmailRequest("colleague@example.com", null, null, "Test Subject", "Test Body");
+        SendEmailRequest request = new SendEmailRequest("colleague@example.com", null, null, "Test Subject",
+                "Test Body");
         String messageId = demoMailboxService.sendEmail(userA, request);
 
         assertNotNull(messageId);
