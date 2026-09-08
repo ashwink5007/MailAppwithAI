@@ -1,9 +1,15 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { UserProfile, OAuthProvider, AuthStatus } from '../types/auth';
 
-const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080').replace(/\/+$/, '');
+// Application API calls use Next.js same-origin rewrites so their session
+// cookie is first-party in the browser and forwarded to Spring Boot.
+const API_BASE_URL = '';
+
+// OAuth remains a browser navigation to Spring Security's configured backend
+// callback; it is not a fetch-based application API request.
+const OAUTH_BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080').replace(/\/+$/, '');
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -26,13 +32,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [googleConnected, setGoogleConnected] = useState<boolean>(false);
+  const hasInitialized = useRef(false);
 
   // Returns true when an authenticated user was resolved, false otherwise.
   // Callers (login, OAuth return) use this to detect a failed session
   // handoff instead of silently bouncing back to the login form in a loop.
   const checkSession = useCallback(async (): Promise<boolean> => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/user/me`, {
+      const res = await fetch(`${API_BASE_URL}/api/user/me`, {
         credentials: 'include',
       });
       if (!res.ok) {
@@ -76,6 +83,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
+    // React Strict Mode intentionally re-runs effects in development. Session
+    // hydration must still have one source and one request per provider mount.
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+
     const params = new URLSearchParams(window.location.search);
     const hadLoginParam = params.get('login') === 'success';
     if (hadLoginParam || params.get('logout') === 'success') {
@@ -96,7 +108,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setStatus('connecting');
       setStatusMessage('Redirecting to Google OAuth 2.0...');
       setTimeout(() => {
-        window.location.href = `${BACKEND_URL}/oauth2/authorization/google`;
+        window.location.href = `${OAUTH_BACKEND_URL}/oauth2/authorization/google`;
       }, 400);
     } else {
       setStatusMessage(`${provider} OAuth coming soon.`);
@@ -107,13 +119,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setStatus('connecting');
       setStatusMessage('Connecting Google account...');
-      const res = await fetch(`${BACKEND_URL}/auth/connect-google`, {
+      const res = await fetch(`${API_BASE_URL}/auth/connect-google`, {
         method: 'POST',
         credentials: 'include',
       });
       const body = await res.json();
       if (body.success && body.data?.url) {
-        window.location.href = `${BACKEND_URL}${body.data.url}`;
+        window.location.href = `${OAUTH_BACKEND_URL}${body.data.url}`;
       } else {
         setStatus('authenticated');
         setStatusMessage(body.message || 'Failed to start Google connection.');
@@ -127,7 +139,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = useCallback(async (email: string, password: string) => {
     try {
       setStatus('loading');
-      const res = await fetch(`${BACKEND_URL}/auth/login`, {
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -156,7 +168,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = useCallback(async (email: string, password: string, displayName: string) => {
     try {
       setStatus('loading');
-      const res = await fetch(`${BACKEND_URL}/auth/register`, {
+      const res = await fetch(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -182,7 +194,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // reject for Access-Control-Allow-Origin "*".
       // redirect: 'manual' is belt-and-braces: even if the backend ever
       // issued a redirect again, fetch would not follow it automatically.
-      await fetch(`${BACKEND_URL}/logout`, {
+      await fetch(`${API_BASE_URL}/logout`, {
         method: 'POST',
         credentials: 'include',
         redirect: 'manual',

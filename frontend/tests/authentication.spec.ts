@@ -3,6 +3,50 @@ import { mockAuthenticatedSession } from './helpers/auth';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
 
+test('email/password sign-in performs one explicit login and confirms the session', async ({ page }) => {
+  let sessionEstablished = false;
+  let loginRequests = 0;
+  let currentUserRequests = 0;
+
+  await page.route('**/api/user/me', async (route) => {
+    currentUserRequests += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      json: sessionEstablished
+        ? { id: 42, name: 'QA Tester', email: 'qa.tester@example.com', googleConnected: false, mailboxMode: 'DEMO' }
+        : {},
+    });
+  });
+  await page.route('**/auth/login', async (route) => {
+    loginRequests += 1;
+    sessionEstablished = true;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      json: { success: true, message: 'Login successful', data: { id: 42 } },
+    });
+  });
+  await page.route('**/api/emails', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      json: { success: true, message: 'Emails retrieved successfully', data: [] },
+    });
+  });
+
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
+  await page.getByPlaceholder('you@example.com').fill('qa.tester@example.com');
+  await page.getByPlaceholder('Min. 8 characters').fill('password123');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+
+  await expect(page.getByText('qa.tester@example.com').first()).toBeVisible();
+  expect(loginRequests).toBe(1);
+  // One startup check plus one post-login confirmation; neither is a login.
+  expect(currentUserRequests).toBe(2);
+});
+
 async function isBackendRunning(request: import('@playwright/test').APIRequestContext): Promise<boolean> {
   try {
     const res = await request.get(`${BACKEND_URL}/api/health`, { timeout: 5000 });

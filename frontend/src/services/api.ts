@@ -4,12 +4,9 @@
  * All backend communication goes through this module.
  * Components and services never call fetch() directly.
  *
- * In production (Vercel → Railway), requests go directly to the Railway backend
- * using the absolute BACKEND_URL so the browser sends the JSESSIONID session
- * cookie (set on the Railway domain) with every request.
+ * Requests use the Next.js same-origin rewrites, which forward the session to
+ * Spring Boot without relying on a cross-site browser cookie handoff.
  */
-
-const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080').replace(/\/+$/, '');
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -25,9 +22,8 @@ async function apiRequest<T>(
   endpoint: string,
   options?: RequestInit
 ): Promise<ApiResponse<T>> {
-  // Build absolute URL so the browser sends the Railway session cookie directly.
-  const url = endpoint.startsWith('http') ? endpoint : `${BACKEND_URL}${endpoint}`;
-  const response = await fetch(url, {
+  // Requests stay same-origin; Next.js rewrites forward the session to Spring.
+  const response = await fetch(endpoint, {
     headers: {
       'Content-Type': 'application/json',
       ...options?.headers,
